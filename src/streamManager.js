@@ -83,7 +83,7 @@ class StreamManager extends EventEmitter {
 
     const proc = ffmpeg(sourceConfig.input)
       .inputOptions(sourceConfig.inputOptions)
-      .audioCodec('libopus')
+      .audioCodec('aac')
       .audioBitrate(config.audio.bitrate)
       .audioFrequency(config.audio.sampleRate)
       .audioChannels(2)
@@ -139,7 +139,7 @@ class StreamManager extends EventEmitter {
     const args = [
       '-f', 's16le', '-ar', String(sampleRate), '-ac', '2', '-i', 'pipe:0',
       '-y',
-      '-acodec', 'libopus', '-b:a', config.audio.bitrate, '-ar', String(sampleRate), '-ac', '2',
+      '-acodec', 'aac', '-b:a', config.audio.bitrate, '-ar', String(sampleRate), '-ac', '2',
       '-f', 'hls',
       '-hls_time', String(config.audio.hlsSegmentDuration),
       '-hls_list_size', String(config.audio.hlsListSize),
