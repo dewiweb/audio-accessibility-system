@@ -236,15 +236,16 @@ router.get('/admin/audio/list', requireAdmin, (req, res) => {
   res.json(files);
 });
 
-router.post('/admin/audio/upload', requireAdmin, uploadAudio.single('audiofile'), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu' });
-  res.json({
-    filename: req.file.filename,
-    path: `/app/uploads/audio/${req.file.filename}`,
-    size: req.file.size,
+router.post('/admin/audio/upload', requireAdmin, (req, res) => {
+  uploadAudio.single('audiofile')(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu' });
+    res.json({
+      filename: req.file.filename,
+      path: `/app/uploads/audio/${req.file.filename}`,
+      size: req.file.size,
+    });
   });
-}, (err, req, res, next) => {
-  res.status(400).json({ error: err.message });
 });
 
 router.delete('/admin/audio/:filename', requireAdmin, (req, res) => {

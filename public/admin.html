@@ -1006,6 +1006,77 @@ async function uploadSdpFile(file) {
   }
 }
 
+window.loadAudioList = async function() {
+  const sel = document.getElementById('src-audio-existing');
+  if (!sel) return;
+  try {
+    const r = await apiFetch('/api/admin/audio/list');
+    const files = await r.json();
+    sel.innerHTML = '<option value="">— sélectionner un fichier existant —</option>';
+    files.forEach(f => {
+      const opt = document.createElement('option');
+      opt.value = f.path;
+      opt.dataset.filename = f.filename;
+      opt.textContent = `${f.filename} (${Math.round(f.size / 1024)} ko)`;
+      sel.appendChild(opt);
+    });
+    if (files.length === 0) sel.innerHTML = '<option value="">Aucun fichier audio sur le serveur</option>';
+  } catch (e) {
+    sel.innerHTML = '<option value="">Erreur chargement</option>';
+  }
+};
+
+window.onAudioExistingSelect = function() {
+  const opt = document.getElementById('src-audio-existing')?.selectedOptions[0];
+  if (!opt || !opt.value) return;
+  const pathInput = document.getElementById('src-file-path');
+  if (pathInput) pathInput.value = opt.value;
+  const status = document.getElementById('audio-upload-status');
+  if (status) {
+    status.style.display = 'block';
+    status.style.color = 'var(--accent2)';
+    status.textContent = `✓ Fichier sélectionné : ${opt.dataset.filename}`;
+  }
+};
+
+window.onAudioFileSelect = async function(input) {
+  const file = input.files[0];
+  if (!file) return;
+  await uploadAudioFile(file);
+};
+
+window.onAudioDrop = async function(event) {
+  event.preventDefault();
+  const dz = document.getElementById('audio-dropzone');
+  if (dz) dz.style.borderColor = 'var(--border)';
+  const file = event.dataTransfer.files[0];
+  if (!file) return;
+  await uploadAudioFile(file);
+};
+
+async function uploadAudioFile(file) {
+  const status = document.getElementById('audio-upload-status');
+  if (status) { status.style.display = 'block'; status.style.color = 'var(--text2)'; status.textContent = `⏳ Upload de ${file.name} (${Math.round(file.size / 1024)} ko)…`; }
+  const formData = new FormData();
+  formData.append('audiofile', file);
+  try {
+    const r = await fetch('/api/admin/audio/upload', {
+      method: 'POST',
+      headers: { 'x-admin-password': adminPassword },
+      body: formData,
+    });
+    if (!r.ok) { const d = await r.json(); throw new Error(d.error || r.status); }
+    const data = await r.json();
+    const pathInput = document.getElementById('src-file-path');
+    if (pathInput) pathInput.value = data.path;
+    if (status) { status.style.color = 'var(--green)'; status.textContent = `✓ ${data.filename} uploadé (${Math.round(data.size / 1024)} ko)`; }
+    loadAudioList();
+  } catch (e) {
+    if (status) { status.style.color = 'var(--red)'; status.textContent = `✗ Erreur : ${e.message}`; }
+    log('Erreur upload audio : ' + e.message, 'error');
+  }
+}
+
 window.onSdpContentInput = function(textarea) {
   const content = textarea.value.trim();
   const saveBtn = document.getElementById('sdp-save-btn');
