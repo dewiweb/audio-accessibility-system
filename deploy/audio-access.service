@@ -1,0 +1,20 @@
+[Unit]
+Description=Audio Accessibility System
+After=network.target sound.target
+Wants=sound.target
+
+[Service]
+Type=simple
+User=audioserver
+WorkingDirectory=/opt/audio-access
+ExecStart=/usr/bin/node src/server.js
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=audio-access
+Environment=NODE_ENV=production
+EnvironmentFile=/opt/audio-access/.env
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#1e1b4b" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Audio Access" />
+  <title>Audio Accessibilité</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" type="image/png" href="/icons/icon-192.png" />
+  <style>
+    :root {
+      --bg: #0f0e17;
+      --surface: #1a1828;
+      --surface2: #242236;
+      --accent: #7c6ff7;
+      --accent2: #a78bfa;
+      --text: #fffffe;
+      --text2: #a7a5b8;
+      --danger: #ef4444;
+      --success: #22c55e;
+      --radius: 16px;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    header {
+      padding: 20px 20px 12px;
+      background: linear-gradient(180deg, rgba(124,111,247,0.15) 0%, transparent 100%);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 4px;
+    }
+
+    .logo { font-size: 28px; }
+
+    .header-title { flex: 1; }
+    .header-title h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+    .header-title p { font-size: 12px; color: var(--text2); margin-top: 2px; }
+
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--danger);
+      transition: background 0.3s;
+    }
+    .status-dot.connected { background: var(--success); box-shadow: 0 0 8px var(--success); }
+
+    main { flex: 1; padding: 16px; overflow-y: auto; }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--text2);
+      margin-bottom: 12px;
+      margin-top: 4px;
+    }
+
+    #channels-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .channel-card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 16px;
+      border: 2px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    .channel-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, var(--card-color, var(--accent)) 0%, transparent 60%);
+      opacity: 0.08;
+      transition: opacity 0.2s;
+    }
+
+    .channel-card:active { transform: scale(0.98); }
+    .channel-card.active { border-color: var(--card-color, var(--accent)); }
+    .channel-card.active::before { opacity: 0.18; }
+
+    .channel-card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .channel-icon {
+      font-size: 28px;
+      width: 48px; height: 48px;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,0.06);
+      border-radius: 12px;
+      flex-shrink: 0;
+    }
+
+    .channel-info { flex: 1; min-width: 0; }
+    .channel-name { font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .channel-desc { font-size: 12px; color: var(--text2); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .channel-badge {
+      display: flex; align-items: center; gap: 4px;
+      background: rgba(255,255,255,0.08);
+      padding: 4px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+      color: var(--text2);
+      flex-shrink: 0;
+    }
+
+    .channel-badge .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--success); }
+
+    .play-btn {
+      width: 100%; padding: 11px;
+      background: rgba(255,255,255,0.06);
+      border: none; border-radius: 10px;
+      color: var(--text); font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: background 0.2s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+
+    .channel-card.active .play-btn {
+      background: var(--card-color, var(--accent));
+      color: white;
+    }
+
+    .play-btn:active { opacity: 0.8; }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text2);
+    }
+
+    .empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+    .empty-state h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; color: var(--text); }
+    .empty-state p { font-size: 13px; line-height: 1.5; }
+
+    .player-bar {
+      position: sticky;
+      bottom: 0;
+      background: var(--surface2);
+      border-top: 1px solid rgba(255,255,255,0.08);
+      padding: 12px 16px;
+      padding-bottom: calc(12px + var(--safe-bottom));
+      display: none;
+    }
+
+    .player-bar.visible { display: block; }
+
+    .player-info {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .player-icon { font-size: 22px; }
+
+    .player-channel-name {
+      flex: 1;
+      font-size: 14px; font-weight: 600;
+    }
+
+    .player-status {
+      font-size: 11px;
+      color: var(--success);
+      font-weight: 600;
+    }
+
+    .volume-row {
+      display: flex; align-items: center; gap: 10px;
+    }
+
+    .vol-icon { font-size: 16px; color: var(--text2); }
+
+    input[type="range"] {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255,255,255,0.15);
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: var(--accent2);
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+
+    .stop-btn {
+      background: rgba(239,68,68,0.15);
+      border: none;
+      color: var(--danger);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 13px; font-weight: 600;
+      cursor: pointer;
+    }
+
+    .stop-btn:active { opacity: 0.7; }
+
+    .toast {
+      position: fixed;
+      top: 20px; left: 50%; transform: translateX(-50%);
+      background: var(--surface2);
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 10px 18px;
+      border-radius: 100px;
+      font-size: 13px;
+      z-index: 1000;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    .toast.show { opacity: 1; }
+
+    audio { display: none; }
+
+    @media (min-width: 480px) {
+      header { padding: 24px 24px 16px; }
+      main { padding: 20px 24px; max-width: 540px; margin: 0 auto; }
+      .player-bar { max-width: 540px; margin: 0 auto; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-top">
+    <div class="logo">🎧</div>
+    <div class="header-title">
+      <h1>Audio Accessibilité</h1>
+      <p id="subtitle">Connexion en cours...</p>
+    </div>
+    <div class="status-dot" id="status-dot"></div>
+  </div>
+</header>
+
+<main>
+  <div class="section-title">Canaux disponibles</div>
+  <div id="channels-list">
+    <div class="empty-state">
+      <div class="icon">📡</div>
+      <h3>Chargement...</h3>
+      <p>Connexion au système audio en cours.</p>
+    </div>
+  </div>
+</main>
+
+<div class="player-bar" id="player-bar">
+  <div class="player-info">
+    <div class="player-icon" id="player-icon">🎧</div>
+    <div class="player-channel-name" id="player-name">—</div>
+    <div class="player-status" id="player-status">● EN DIRECT</div>
+    <button class="stop-btn" id="stop-btn">■ Stop</button>
+  </div>
+  <div class="volume-row">
+    <span class="vol-icon">🔈</span>
+    <input type="range" id="volume-slider" min="0" max="100" value="100" />
+    <span class="vol-icon">🔊</span>
+  </div>
+</div>
+
+<audio id="audio-player" autoplay></audio>
+<div class="toast" id="toast"></div>
+
+<script>
+(function() {
+  let ws;
+  let currentChannelId = null;
+  let reconnectTimer = null;
+  let channels = [];
+  const audio = document.getElementById('audio-player');
+  const statusDot = document.getElementById('status-dot');
+  const subtitle = document.getElementById('subtitle');
+  const channelsList = document.getElementById('channels-list');
+  const playerBar = document.getElementById('player-bar');
+  const playerName = document.getElementById('player-name');
+  const playerIcon = document.getElementById('player-icon');
+  const playerStatus = document.getElementById('player-status');
+  const stopBtn = document.getElementById('stop-btn');
+  const volumeSlider = document.getElementById('volume-slider');
+
+  function showToast(msg, duration = 2500) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), duration);
+  }
+
+  function connect() {
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    ws = new WebSocket(`${proto}//${location.host}/ws`);
+
+    ws.onopen = () => {
+      statusDot.classList.add('connected');
+      subtitle.textContent = 'Connecté — choisissez un canal';
+      clearTimeout(reconnectTimer);
+    };
+
+    ws.onmessage = (evt) => {
+      const msg = JSON.parse(evt.data);
+      handleMessage(msg);
+    };
+
+    ws.onclose = () => {
+      statusDot.classList.remove('connected');
+      subtitle.textContent = 'Reconnexion...';
+      reconnectTimer = setTimeout(connect, 3000);
+    };
+
+    ws.onerror = () => ws.close();
+  }
+
+  function handleMessage(msg) {
+    switch (msg.type) {
+      case 'connected':
+        channels = msg.channels || [];
+        renderChannels();
+        break;
+      case 'public:channels':
+        channels = msg.data || [];
+        renderChannels();
+        break;
+    }
+  }
+
+  function renderChannels() {
+    if (channels.length === 0) {
+      channelsList.innerHTML = `
+        <div class="empty-state">
+          <div class="icon">📻</div>
+          <h3>Aucun canal disponible</h3>
+          <p>Aucune diffusion audio n'est active pour le moment.<br>Veuillez patienter ou contacter l'accueil.</p>
+        </div>`;
+      return;
+    }
+
+    channelsList.innerHTML = channels.map(ch => `
+      <div class="channel-card ${currentChannelId === ch.id ? 'active' : ''}"
+           id="card-${ch.id}"
+           style="--card-color: ${ch.color}"
+           data-id="${ch.id}">
+        <div class="channel-card-header">
+          <div class="channel-icon">${ch.icon}</div>
+          <div class="channel-info">
+            <div class="channel-name">${escapeHtml(ch.name)}</div>
+            <div class="channel-desc">${escapeHtml(ch.description || '')}</div>
+          </div>
+          <div class="channel-badge">
+            <div class="dot"></div>
+            ${ch.listenerCount} 
+          </div>
+        </div>
+        <button class="play-btn" data-id="${ch.id}">
+          ${currentChannelId === ch.id ? '⏸ En écoute' : '▶ Écouter'}
+        </button>
+      </div>
+    `).join('');
+
+    channelsList.querySelectorAll('.play-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        if (currentChannelId === id) {
+          stopPlayback();
+        } else {
+          playChannel(id);
+        }
+      });
+    });
+  }
+
+  async function playChannel(channelId) {
+    try {
+      const resp = await fetch(`/api/channels/${channelId}`);
+      if (!resp.ok) throw new Error('Canal introuvable');
+      const ch = await resp.json();
+
+      if (Hls) {
+        startHls(ch.hlsUrl, ch);
+      } else if (audio.canPlayType('application/vnd.apple.mpegurl')) {
+        audio.src = ch.hlsUrl;
+        audio.play().catch(err => showToast('Erreur lecture: ' + err.message));
+        updatePlayerUI(ch);
+      } else {
+        showToast('Votre navigateur ne supporte pas le streaming audio.');
+        return;
+      }
+
+      currentChannelId = channelId;
+      if (ws && ws.readyState === 1) {
+        ws.send(JSON.stringify({ type: 'join:channel', channelId }));
+      }
+      renderChannels();
+    } catch (e) {
+      showToast('Erreur: ' + e.message);
+    }
+  }
+
+  let hlsInstance = null;
+
+  function startHls(url, ch) {
+    if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+    const hls = new Hls({
+      lowLatencyMode: true,
+      backBufferLength: 4,
+      liveSyncDuration: 2,
+      liveMaxLatencyDuration: 5,
+      liveDurationInfinity: true,
+    });
+    hls.loadSource(url);
+    hls.attachMedia(audio);
+    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      audio.play().catch(err => {
+        showToast('Appuyez sur Écouter pour démarrer l\'audio');
+      });
+    });
+    hls.on(Hls.Events.ERROR, (event, data) => {
+      if (data.fatal) {
+        showToast('Erreur stream. Reconnexion...');
+        setTimeout(() => startHls(url, ch), 3000);
+      }
+    });
+    hlsInstance = hls;
+    updatePlayerUI(ch);
+  }
+
+  function stopPlayback() {
+    if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+    audio.src = '';
+    if (ws && ws.readyState === 1) {
+      ws.send(JSON.stringify({ type: 'leave:channel', channelId: currentChannelId }));
+    }
+    currentChannelId = null;
+    playerBar.classList.remove('visible');
+    renderChannels();
+    showToast('Lecture arrêtée');
+  }
+
+  function updatePlayerUI(ch) {
+    playerBar.classList.add('visible');
+    playerName.textContent = ch.name;
+    playerIcon.textContent = ch.icon;
+    playerStatus.textContent = '● EN DIRECT';
+  }
+
+  volumeSlider.addEventListener('input', () => {
+    audio.volume = volumeSlider.value / 100;
+  });
+
+  stopBtn.addEventListener('click', stopPlayback);
+
+  audio.addEventListener('waiting', () => { playerStatus.textContent = '⏳ Chargement...'; });
+  audio.addEventListener('playing', () => { playerStatus.textContent = '● EN DIRECT'; });
+  audio.addEventListener('error', () => { playerStatus.textContent = '⚠ Erreur'; });
+
+  function escapeHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  connect();
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }
+})();
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js"></script>
+</body>
+</html>

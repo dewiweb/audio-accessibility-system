@@ -1,0 +1,49 @@
+services:
+  audio-access:
+    image: ghcr.io/dewiweb/audio-accessibility-system:latest
+    container_name: audio-access
+    restart: unless-stopped
+
+    # CRITIQUE: network_mode host obligatoire pour recevoir les flux RTP/multicast AES67
+    # Sans ça, le container ne peut pas rejoindre les groupes multicast de la régie
+    network_mode: host
+
+    environment:
+      NODE_ENV: production
+      PORT: "8080"
+      HOST: "0.0.0.0"
+
+      # Changer ces valeurs !
+      ADMIN_PASSWORD: "votre-mot-de-passe-admin"
+      SESSION_SECRET: "une-chaine-aleatoire-longue-ici"
+
+      # IP du serveur Docker visible depuis le WiFi de la salle
+      PUBLIC_URL: "http://192.168.100.251:8080"
+
+      # HLS streaming
+      HLS_SEGMENT_DURATION: "1"
+      HLS_LIST_SIZE: "3"
+      AUDIO_SAMPLE_RATE: "48000"
+      AUDIO_BITRATE: "128k"
+
+      # AES67: tampon jitter en ms
+      RTP_BUFFER_MS: "200"
+      # Interface réseau du serveur Docker vers le réseau AES67 (QSYS)
+      MULTICAST_INTERFACE: "192.168.100.251"
+
+    volumes:
+      # Persistance données canaux
+      - audio-access-data:/app/uploads
+      # Fichiers SDP de la console QSYS AES67
+      - /opt/audio-access/sdp:/app/sdp:ro
+      # Fichiers audio locaux si besoin
+      - /opt/audio-access/audio:/app/audio:ro
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  audio-access-data:

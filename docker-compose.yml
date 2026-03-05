@@ -1,0 +1,64 @@
+services:
+  audio-access:
+    build: .
+    image: audio-accessibility-system:latest
+    container_name: audio-access
+    restart: unless-stopped
+
+    # IMPORTANT: host network required for AES67 multicast RTP reception
+    # Le container doit voir le réseau IP de la régie pour recevoir les flux RTP
+    network_mode: host
+
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      - HOST=0.0.0.0
+
+      # === SÉCURITÉ ===
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-changeme}
+      - SESSION_SECRET=${SESSION_SECRET:-change-this-secret}
+
+      # === URL PUBLIQUE (IP du serveur sur le réseau WiFi salle) ===
+      - PUBLIC_URL=${PUBLIC_URL:-http://192.168.100.251:8080}
+
+      # === AUDIO HLS ===
+      - HLS_SEGMENT_DURATION=1
+      - HLS_LIST_SIZE=3
+      - AUDIO_SAMPLE_RATE=48000
+      - AUDIO_BITRATE=128k
+
+      # === AES67 / RTP ===
+      # Tampon jitter réseau en millisecondes (augmenter si glitches)
+      - RTP_BUFFER_MS=200
+      # Interface réseau pour le multicast (laisser vide = auto)
+      # ex: MULTICAST_INTERFACE=192.168.1.100
+      - MULTICAST_INTERFACE=${MULTICAST_INTERFACE:-192.168.100.251}
+
+    volumes:
+      # Persistance des configurations de canaux
+      - audio-data:/app/uploads
+      # Fichiers SDP exportés depuis la console Dante/AES67
+      - ./sdp:/app/sdp:ro
+      # Fichiers audio locaux (optionnel)
+      - ./audio:/app/audio:ro
+
+    # Exposer le port HLS/Web (redondant avec host network, mais documenté)
+    # ports:  # Commenté car network_mode: host
+    #   - "3000:3000"
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/channels"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  audio-data:
+    driver: local

@@ -1,0 +1,17 @@
+# Normalisation des fins de ligne
+* text=auto
+
+# Scripts shell : toujours LF (sinon inutilisables sous Linux/Docker)
+*.sh text eol=lf
+Dockerfile text eol=lf
+deploy/audio-access.service text eol=lf
+deploy/nginx.conf text eol=lf
+scripts/* text eol=lf
+
+# Fichiers SDP : LF
+*.sdp text eol=lf
+
+# Binaires : pas de conversion
+*.png binary
+*.jpg binary
+*.ico binary

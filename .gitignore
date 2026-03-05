@@ -1,0 +1,8 @@
+node_modules/
+.env
+public/hls/
+uploads/
+*.log
+startup-out.txt
+startup-err.txt
+test-startup.js

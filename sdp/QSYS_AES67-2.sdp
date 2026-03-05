@@ -1,0 +1,12 @@
+v=0
+o=- 144476928 144478197 IN IP4 192.168.100.186
+s=QSYS_AES67-2
+c=IN IP4 239.69.112.251/32
+t=0 0
+m=audio 5004 RTP/AVP 96
+i=Channels 1-2
+a=recvonly
+a=rtpmap:96 L24/48000/2
+a=ptime:1
+a=ts-refclk:ptp=IEEE1588-2008:00-0E-DD-FF-FE-FD-36-7D:0
+a=mediaclk:direct=0
