@@ -5,8 +5,9 @@
 ```
 Smartphones (WiFi) → nginx :443 HTTPS → localhost:8080 (Node.js)
                            ↑
-                    Certificat auto-signé
-                    /opt/audio-access/certs/
+                    Certificat auto-signé 10 ans
+                    généré automatiquement au 1er démarrage
+                    persisté dans volume Docker audio-access-certs
 ```
 
 > **Pourquoi nginx en network_mode: host ?**  
@@ -15,54 +16,32 @@ Smartphones (WiFi) → nginx :443 HTTPS → localhost:8080 (Node.js)
 
 ---
 
-## 1. Préparer les répertoires sur le serveur Docker
+## Génération automatique du certificat
 
-```bash
-mkdir -p /opt/audio-access/certs
-mkdir -p /opt/audio-access/nginx
-```
+Le certificat est **généré automatiquement au premier démarrage** du container nginx (`nginx/entrypoint.sh`) :
+- Validité **10 ans** (3650 jours)
+- Persisté dans le volume Docker `audio-access-certs` — **non régénéré aux redémarrages suivants**
+- Régénération automatique si le cert expire dans moins de 30 jours
+- CN et SAN configurés via la variable `TLS_CN` dans le stack
 
----
-
-## 2. Générer le certificat auto-signé
-
-Copiez `nginx/generate-cert.sh` sur le serveur et exécutez-le :
-
-```bash
-# Remplacez par l'IP réelle de votre serveur
-chmod +x generate-cert.sh
-sudo sh generate-cert.sh 192.168.100.251
-```
-
-Le certificat est généré dans `/etc/nginx/certs/` — copiez-le dans le dossier monté :
-
-```bash
-sudo cp /etc/nginx/certs/server.crt /opt/audio-access/certs/
-sudo cp /etc/nginx/certs/server.key /opt/audio-access/certs/
-```
-
-Ou générez directement dans `/opt/audio-access/certs/` :
-
-```bash
-sudo openssl req -x509 -nodes -days 825 \
-  -newkey rsa:2048 \
-  -keyout /opt/audio-access/certs/server.key \
-  -out /opt/audio-access/certs/server.crt \
-  -subj "/C=FR/ST=Local/L=Local/O=AudioAccessibility/CN=192.168.100.251" \
-  -addext "subjectAltName=IP:192.168.100.251"
-```
+**Aucune action manuelle requise** pour la génération.
 
 ---
 
-## 3. Copier la config nginx
+## 1. Récupérer le certificat généré (pour le distribuer aux appareils)
+
+Après le premier démarrage :
 
 ```bash
-sudo cp nginx/audio-access.conf /opt/audio-access/nginx/audio-access.conf
+# Copier le certificat depuis le volume Docker
+docker cp audio-access-nginx:/etc/nginx/certs/server.crt ./server.crt
 ```
+
+Distribuez ce `server.crt` aux appareils clients (voir section 5).
 
 ---
 
-## 4. Déployer dans Portainer
+## 2. Déployer dans Portainer
 
 Utilisez **`portainer-stack-https.yml`** à la place de `portainer-stack.yml`.
 

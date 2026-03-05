@@ -39,18 +39,23 @@ services:
         max-file: "3"
 
   nginx:
-    image: nginx:alpine
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    image: audio-access-nginx:latest
     container_name: audio-access-nginx
     restart: unless-stopped
 
     # network_mode host pour proxifier vers localhost:8080 (même host que l'app)
     network_mode: host
 
+    environment:
+      # IP ou hostname du serveur — utilisé comme CN et SAN du certificat auto-signé
+      TLS_CN: "192.168.100.251"
+
     volumes:
-      # Config nginx
-      - /opt/audio-access/nginx/audio-access.conf:/etc/nginx/conf.d/default.conf:ro
-      # Certificats TLS (générés par generate-cert.sh)
-      - /opt/audio-access/certs:/etc/nginx/certs:ro
+      # Persistance du certificat entre redémarrages (sinon régénéré à chaque boot)
+      - audio-access-certs:/etc/nginx/certs
 
     depends_on:
       - audio-access
@@ -65,3 +70,4 @@ volumes:
   audio-access-data:
   audio-access-sdp:
   audio-access-hls:
+  audio-access-certs:
