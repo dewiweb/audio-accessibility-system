@@ -1,4 +1,4 @@
-const CACHE_NAME = 'audio-access-v4';
+const CACHE_NAME = 'audio-access-v5';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

@@ -309,29 +309,8 @@
 <audio id="audio-player" autoplay aria-hidden="true"></audio>
 <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
+<script src="/hls.min.js"></script>
 <script>
-(function() {
-  function loadHls(src, cb) {
-    var s = document.createElement('script');
-    s.src = src;
-    s.onload = cb;
-    s.onerror = cb;
-    document.head.appendChild(s);
-  }
-  window.__initApp = function() {};
-  loadHls('/hls.min.js', function() {
-    if (typeof Hls === 'undefined') {
-      loadHls('https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js', function() {
-        window.__initApp();
-      });
-    } else {
-      window.__initApp();
-    }
-  });
-})();
-</script>
-<script>
-window.__initApp = function() {
 (function() {
   let ws;
   let currentChannelId = null;
@@ -592,7 +571,6 @@ window.__initApp = function() {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
 })();
-};
 </script>
 
 </body>
