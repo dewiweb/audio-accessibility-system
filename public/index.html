@@ -509,8 +509,22 @@
         break;
       case 'stream:vod_ended':
         if (msg.data && msg.data.channelId === currentChannelId) {
-          stopPlayback();
-          showToast('Lecture terminée', 2500);
+          const ch = channels.find(c => c.id === currentChannelId);
+          if (ch && ch.sourceLoop) {
+            // Loop file VOD : l'encodage 2h est terminé, FFmpeg repart depuis le début.
+            // Recharger le stream HLS depuis seg00000 (la playlist est réécrite).
+            console.log('[PWA] Loop VOD ended, restarting from beginning...');
+            setTimeout(() => {
+              if (currentChannelId && hlsInstance) {
+                hlsInstance.destroy();
+                hlsInstance = null;
+              }
+              playChannel(currentChannelId);
+            }, 1500);
+          } else {
+            stopPlayback();
+            showToast('Lecture terminée', 2500);
+          }
         }
         break;
     }
@@ -621,7 +635,7 @@
       liveMaxLatencyDurationCount: 6,
       liveDurationInfinity: true,
     };
-    const hls = new Hls(isVod ? baseConfig : liveConfig);
+    const hls = new Hls(isVod || isLoopFile ? baseConfig : liveConfig);
     hls.loadSource(url);
     hls.attachMedia(audio);
     hls.on(Hls.Events.MANIFEST_PARSED, () => {

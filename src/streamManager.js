@@ -85,15 +85,28 @@ class StreamManager extends EventEmitter {
     const isLoopFile = isFileSource && source.loop === true;
 
     // Sources fichier non-loop : mode VOD — tous segments conservés, EXT-X-ENDLIST final.
-    // Sources fichier loop : -stream_loop -1 + fenêtre glissante (delete_segments).
-    //   FFmpeg écrit les segments en temps réel → les segments récents sont toujours présents,
-    //   pas de 404. Identique aux sources live.
+    // Sources fichier loop : stream_loop N (N répétitions fixes) en mode VOD.
+    //   FFmpeg concatène N fois le fichier en un seul passage → playlist VOD complète.
+    //   HLS.js lit en mode VOD (baseConfig, pas liveConfig) → lecture fluide sans saut.
+    //   À la fin (stream:vod_ended), le client recharge depuis le début (seamless).
+    //   N = ceil(LOOP_WINDOW / durée_fichier) — LOOP_WINDOW = 7200s (2h).
     // Sources live (AES67, ALSA…) : fenêtre glissante, delete_segments.
-    // -re : limite le débit d'entrée à la vitesse de lecture réelle (1x).
-    // Sans -re, FFmpeg encode aussi vite que possible → des milliers de segments
-    // en quelques secondes, delete_segments supprime les anciens avant que HLS.js
-    // puisse les lire → 404 en cascade.
-    if (isLoopFile) sourceConfig.inputOptions = ['-stream_loop -1', '-re', ...(sourceConfig.inputOptions || [])];
+    const LOOP_WINDOW_S = 7200; // 2h par "itération VOD"
+    if (isLoopFile) {
+      // Durée du fichier via ffprobe (synchrone, une seule fois au démarrage)
+      let fileDuration = 60; // valeur par défaut si ffprobe échoue
+      try {
+        const { execSync } = require('child_process');
+        const dur = execSync(
+          `ffprobe -v quiet -show_entries format=duration -of csv=p=0 "${source.path}"`,
+          { encoding: 'utf8', timeout: 5000 }
+        ).trim();
+        if (parseFloat(dur) > 0) fileDuration = parseFloat(dur);
+      } catch {}
+      const loopCount = Math.ceil(LOOP_WINDOW_S / fileDuration);
+      console.log(`[Stream ${channelId}] Loop VOD: ${loopCount}× ${fileDuration.toFixed(1)}s = ${(loopCount * fileDuration / 3600).toFixed(1)}h`);
+      sourceConfig.inputOptions = [`-stream_loop ${loopCount}`, ...(sourceConfig.inputOptions || [])];
+    }
 
     const outputOptions = isFileSource && !isLoopFile ? [
       '-f hls',
@@ -105,16 +118,16 @@ class StreamManager extends EventEmitter {
       `-hls_segment_filename ${path.join(outputDir, 'seg%05d.ts')}`,
       '-hls_allow_cache 1',
     ] : isLoopFile ? [
-      // stream_loop -1 : FFmpeg écrit en continu, les segments récents sont toujours présents.
-      // delete_segments + hls_list_size : fenêtre glissante, seuls N segments sur le disque.
-      // Identique aux sources live — pas de 404 car les segments sont écrits en temps réel.
+      // VOD loop : hls_list_size 0 = tous les segments conservés, EXT-X-ENDLIST à la fin.
+      // Le client recharge depuis seg00000 quand stream:vod_ended est reçu.
       '-f hls',
       `-hls_time ${config.audio.hlsSegmentDuration}`,
-      `-hls_list_size ${config.audio.hlsListSize}`,
-      '-hls_flags delete_segments+append_list+omit_endlist+independent_segments',
+      '-hls_list_size 0',
+      '-hls_playlist_type vod',
+      '-hls_flags independent_segments',
       '-hls_segment_type mpegts',
       `-hls_segment_filename ${path.join(outputDir, 'seg%05d.ts')}`,
-      '-hls_allow_cache 0',
+      '-hls_allow_cache 1',
     ] : [
       '-f hls',
       `-hls_time ${config.audio.hlsSegmentDuration}`,
@@ -195,15 +208,24 @@ class StreamManager extends EventEmitter {
         this.emit('stream:error', { channelId, error: err.message });
       })
       .on('end', () => {
-        if (isFileSource && !isLoopFile) {
+        if (isFileSource && isLoopFile) {
+          // Loop VOD : l'encodage N×fichier est terminé. On émet vod_ended pour que
+          // les clients se reconnectent, puis on relance FFmpeg après 2s.
+          console.log(`[Stream ${channelId}] Loop VOD complete, restarting...`);
+          this.emit('stream:vod_ended', { channelId });
+          this.activeStreams.delete(channelId);
+          setTimeout(() => {
+            if (!this.activeStreams.has(channelId)) {
+              this.startStream(channelId, source);
+            }
+          }, 2000);
+        } else if (isFileSource && !isLoopFile) {
           // Mode VOD non-loop : FFmpeg a terminé, playlist complète avec EXT-X-ENDLIST.
           console.log(`[Stream ${channelId}] Encoding complete (VOD ready)`);
           const stream = this.activeStreams.get(channelId);
           if (stream) stream.proc = null;
           this.emit('stream:vod_ended', { channelId });
         } else {
-          // Loop file (stream_loop -1) : on('end') ne devrait pas être atteint en fonctionnement
-          // normal. Si on arrive ici c'est une fin inattendue — traiter comme une erreur.
           console.log(`[Stream ${channelId}] Ended`);
           this.activeStreams.delete(channelId);
           channelManager.setActive(channelId, false);
