@@ -107,6 +107,37 @@ Via fichier SDP exporté depuis la console (plus fiable) :
 
 Les fichiers `.sdp` sont à déposer dans `sdp/` — ce dossier est monté en volume dans le container.
 
+#### Flux multicanaux (4, 8, 16 canaux)
+
+Un flux AES67 peut contenir jusqu'à 16 canaux dans un seul flux RTP. Paramètres optionnels :
+
+| Paramètre | Type | Description |
+|-----------|------|-------------|
+| `channels` | int | Nombre total de canaux dans le flux (1, 2, 4, 8, 16) |
+| `channelMap` | [int, int] | Paire de canaux à extraire en stéréo L/R (index 1-basés, ex: `[3, 4]`) |
+| `downmix` | string | Mode de downmix multicanal → stéréo (voir tableau ci-dessous) |
+| `gain` | int | Ajustement de volume en dB (−20 à +20, 0 = pas de changement) |
+
+Modes `downmix` disponibles :
+
+| Valeur | Usage |
+|--------|-------|
+| `mono-to-stereo` | Flux mono (audiodescription voix) → stéréo dupliquée L+R |
+| `stereo` | Downmix standard ITU-R BS.775 — 5.1/7.1 → stéréo |
+| `stereo-loud` | Mix renforcé malentendants — LFE + surround boostés (+Centre×0.45, +LFE×0.55) |
+| `binaural` | Rendu binaural HRTF — son 3D pour casque (filtre `headphone` FFmpeg) |
+
+Exemples :
+
+```json
+{ "type": "aes67", "sdpFile": "/app/sdp/stream.sdp", "channels": 8, "channelMap": [3, 4] }
+{ "type": "aes67", "sdpFile": "/app/sdp/film.sdp", "channels": 6, "downmix": "stereo-loud", "gain": 6 }
+{ "type": "aes67", "multicastAddress": "239.69.0.1", "port": 5004, "channels": 1, "downmix": "mono-to-stereo" }
+```
+
+> ℹ️ `channelMap` et `downmix` sont mutuellement exclusifs : si `channelMap` est défini, `downmix` est ignoré.  
+> Tout ceci est configurable directement depuis l'interface admin (formulaire de création et d'édition du canal).
+
 ### Autres sources supportées
 
 ```json
