@@ -124,7 +124,17 @@ class StreamManager extends EventEmitter {
           // Rendu binaural HRTF via filtre headphone (intégré FFmpeg, pas besoin de SOFA)
           audioFilters.push('headphone=hrir=compensated:type=time');
           break;
+        case 'mono-to-stereo':
+          // Flux mono (voix audiodescription) → dupliqué L+R
+          audioFilters.push('pan=stereo|c0=c0|c1=c0');
+          break;
       }
+    }
+
+    // 3. Gain (volume) — utile pour l'audiodescription où la voix doit dominer
+    // source.gain = valeur en dB, ex: +6, -3, 0 (défaut)
+    if (source.gain && source.gain !== 0) {
+      audioFilters.push(`volume=${source.gain}dB`);
     }
 
     if (audioFilters.length > 0) {

@@ -1203,12 +1203,18 @@ window.updateSourceForm = function() {
       <div class="form-row" id="downmix-row">
         <label class="form-label">Downmix vers stéréo</label>
         <select class="form-input" id="src-aes67-downmix">
-          <option value="">— pas de downmix (flux déjà stéréo) —</option>
-          <option value="stereo">Stéréo standard (ITU-R BS.775)</option>
-          <option value="stereo-loud">Stéréo renforcée — pour malentendants (LFE + surround boostés)</option>
+          <option value="">— pas de traitement (flux déjà stéréo) —</option>
+          <option value="mono-to-stereo">Mono → Stéréo — audiodescription (voix dupliquée L+R)</option>
+          <option value="stereo">Stéréo standard (ITU-R BS.775) — downmix 5.1/7.1</option>
+          <option value="stereo-loud">Stéréo renforcée — malentendants (LFE + surround boostés)</option>
           <option value="binaural">Binaural HRTF — rendu 3D casque</option>
         </select>
-        <div style="font-size:11px;color:var(--text3);margin-top:4px">Pour flux 5.1 / 7.1 — ignoré si une paire spécifique est sélectionnée ci-dessus</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">Audiodescription : choisir <b>Mono → Stéréo</b> · 5.1/7.1 : choisir <b>Stéréo renforcée</b> ou standard</div>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Gain (dB) <span style="font-weight:normal;color:var(--text3)">— optionnel, 0 = pas de changement</span></label>
+        <input class="form-input" id="src-aes67-gain" type="number" value="0" step="1" min="-20" max="20" placeholder="0" style="width:100px" />
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">+6 dB = doubler le volume · −6 dB = réduire de moitié · utile pour audiodescription</div>
       </div>
       <div class="form-row-2">
         <div class="form-row"><label class="form-label">Sample rate (Hz)</label>
@@ -1334,6 +1340,8 @@ function buildSource() {
       if (chMapVal) src.channelMap = chMapVal.split(',').map(Number);
       const downmixVal = document.getElementById('src-aes67-downmix')?.value || '';
       if (downmixVal && !chMapVal) src.downmix = downmixVal;
+      const gainVal = parseInt(document.getElementById('src-aes67-gain')?.value || 0);
+      if (gainVal !== 0) src.gain = gainVal;
       return src;
     }
     case 'aes67sdp-upload': {
