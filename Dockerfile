@@ -28,9 +28,9 @@ RUN addgroup -S audioapp && adduser -S audioapp -G audioapp \
 
 USER audioapp
 
-EXPOSE 3000
+EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-  CMD wget -qO- http://localhost:3000/api/channels || exit 1
+  CMD wget -qO- http://localhost:8080/api/channels || exit 1
 
 CMD ["node", "src/server.js"]

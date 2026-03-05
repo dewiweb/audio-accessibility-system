@@ -2,8 +2,40 @@ const ffmpeg = require('fluent-ffmpeg');
 const path = require('path');
 const fs = require('fs');
 const { EventEmitter } = require('events');
+const { PassThrough } = require('stream');
 const config = require('./config');
 const channelManager = require('./channelManager');
+
+function generateSineStream(frequency = 440, sampleRate = 48000) {
+  const stream = new PassThrough();
+  const channels = 2;
+  const bytesPerSample = 2;
+  const chunkMs = 100;
+  const samplesPerChunk = Math.floor(sampleRate * chunkMs / 1000);
+  const bufSize = samplesPerChunk * channels * bytesPerSample;
+  let phase = 0;
+  const phaseInc = (2 * Math.PI * frequency) / sampleRate;
+  let running = true;
+
+  const write = () => {
+    if (!running) return;
+    const buf = Buffer.alloc(bufSize);
+    for (let i = 0; i < samplesPerChunk; i++) {
+      const sample = Math.round(Math.sin(phase) * 0x6FFF);
+      buf.writeInt16LE(sample, i * channels * bytesPerSample);
+      buf.writeInt16LE(sample, i * channels * bytesPerSample + bytesPerSample);
+      phase += phaseInc;
+    }
+    if (phase > 2 * Math.PI) phase -= 2 * Math.PI;
+    const ok = stream.push(buf);
+    if (ok) setTimeout(write, chunkMs);
+    else stream.once('drain', write);
+  };
+
+  stream.on('close', () => { running = false; });
+  setTimeout(write, 0);
+  return stream;
+}
 
 class StreamManager extends EventEmitter {
   constructor() {
@@ -102,10 +134,7 @@ class StreamManager extends EventEmitter {
   }
 
   startTestTone(channelId, frequency = 440) {
-    return this.startStream(channelId, {
-      type: 'testtone',
-      frequency,
-    });
+    return this.startStream(channelId, { type: 'testtone', frequency });
   }
 
   _resolveSource(source) {
@@ -151,16 +180,24 @@ class StreamManager extends EventEmitter {
           input: source.path,
           inputOptions: ['-stream_loop -1'],
         };
-      case 'testtone':
+      case 'testtone': {
+        const sineStream = generateSineStream(source.frequency || 440, config.audio.sampleRate);
         return {
-          input: `sine=frequency=${source.frequency || 440}:duration=9999`,
-          inputOptions: ['-f lavfi', `-ar ${config.audio.sampleRate}`],
+          input: sineStream,
+          inputOptions: [
+            '-f s16le',
+            `-ar ${config.audio.sampleRate}`,
+            '-ac 2',
+          ],
         };
-      case 'silence':
+      }
+      case 'silence': {
+        const silenceStream = generateSineStream(0, config.audio.sampleRate);
         return {
-          input: 'anullsrc=r=48000:cl=stereo',
-          inputOptions: ['-f lavfi'],
+          input: silenceStream,
+          inputOptions: ['-f s16le', `-ar ${config.audio.sampleRate}`, '-ac 2'],
         };
+      }
       default:
         throw new Error(`Unknown source type: ${source.type}`);
     }
