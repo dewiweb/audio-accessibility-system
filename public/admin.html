@@ -1028,16 +1028,7 @@ function renderChannelDetail(ch) {
           </div>
         </div>` : ''}
         ${ch.source?.type === 'aes67' ? `
-        <div class="form-row">
-          <label class="form-label" for="edit-aes67-channels">Canaux dans le flux AES67</label>
-          <select class="form-input" id="edit-aes67-channels" data-action="update-edit-channel-map">
-            <option value="1" ${(ch.source?.channels||2)===1?'selected':''}>1 — Mono</option>
-            <option value="2" ${(ch.source?.channels||2)===2?'selected':''}>2 — Stéréo</option>
-            <option value="4" ${(ch.source?.channels||2)===4?'selected':''}>4 — Quad</option>
-            <option value="8" ${(ch.source?.channels||2)===8?'selected':''}>8 — Octo</option>
-            <option value="16" ${(ch.source?.channels||2)===16?'selected':''}>16 — 16ch</option>
-          </select>
-        </div>
+        <input type="hidden" id="edit-aes67-channels" value="${ch.source?.channels || 2}" />
         <div class="form-row" id="edit-channel-map-row" ${(ch.source?.channels||2)<=2?'style="display:none"':''}>
           <label class="form-label" for="edit-aes67-channelmap">Paire stéréo à extraire</label>
           <select class="form-input" id="edit-aes67-channelmap">
@@ -1572,20 +1563,7 @@ window.updateSourceForm = function() {
         <input class="form-input sdp-selected-input" id="src-aes67sdp-path" readonly placeholder="Aucun fichier sélectionné" />
       </div>
       <div class="src-hint-section">🎛️ Paramètres audio du flux</div>
-      <div class="form-row-2">
-        <div class="form-row"><label class="form-label">Canaux dans le flux</label>
-          <select class="form-input" id="src-aes67sdp-channels" data-action="update-channel-map-sdp">
-            <option value="2">2 — Stéréo</option>
-            <option value="1">1 — Mono</option>
-            <option value="4">4 — Quad</option>
-            <option value="8">8 — Octo</option>
-            <option value="16">16 — 16ch</option>
-          </select>
-        </div>
-        <div class="form-row"><label class="form-label">Gain (dB) <span class="label-opt">— 0 = neutre</span></label>
-          <input class="form-input gain-input" id="src-aes67sdp-gain" type="number" value="0" step="1" min="-20" max="20" />
-        </div>
-      </div>
+      <input type="hidden" id="src-aes67sdp-channels" value="2" />
       <div class="form-row channel-map-row-hidden" id="channel-map-row-sdp">
         <label class="form-label">Paire stéréo à extraire</label>
         <select class="form-input" id="src-aes67sdp-channelmap">
@@ -1603,6 +1581,10 @@ window.updateSourceForm = function() {
           <option value="binaural">Binaural HRTF — rendu 3D casque</option>
         </select>
         <div class="src-hint-grey">Audiodescription : choisir <b>Mono → Stéréo</b> · 5.1/7.1 : choisir <b>Stéréo renforcée</b> ou standard</div>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Gain (dB) <span class="label-opt">— 0 = neutre</span></label>
+        <input class="form-input gain-input" id="src-aes67sdp-gain" type="number" value="0" step="1" min="-20" max="20" />
       </div>`,
 
     'aes67sdp-paste': `
@@ -1620,20 +1602,7 @@ window.updateSourceForm = function() {
         <div class="src-hint-grey-md">💡 Le contenu sera sauvegardé automatiquement sur le serveur lors de la création du canal.</div>
       </div>
       <div class="src-hint-section">🎛️ Paramètres audio du flux</div>
-      <div class="form-row-2">
-        <div class="form-row"><label class="form-label">Canaux dans le flux</label>
-          <select class="form-input" id="src-aes67paste-channels" data-action="update-channel-map-paste">
-            <option value="2">2 — Stéréo</option>
-            <option value="1">1 — Mono</option>
-            <option value="4">4 — Quad</option>
-            <option value="8">8 — Octo</option>
-            <option value="16">16 — 16ch</option>
-          </select>
-        </div>
-        <div class="form-row"><label class="form-label">Gain (dB) <span class="label-opt">— 0 = neutre</span></label>
-          <input class="form-input gain-input" id="src-aes67paste-gain" type="number" value="0" step="1" min="-20" max="20" />
-        </div>
-      </div>
+      <input type="hidden" id="src-aes67paste-channels" value="2" />
       <div class="form-row channel-map-row-hidden" id="channel-map-row-paste">
         <label class="form-label">Paire stéréo à extraire</label>
         <select class="form-input" id="src-aes67paste-channelmap">
@@ -1651,6 +1620,10 @@ window.updateSourceForm = function() {
           <option value="binaural">Binaural HRTF — rendu 3D casque</option>
         </select>
         <div class="src-hint-grey">Audiodescription : choisir <b>Mono → Stéréo</b> · 5.1/7.1 : choisir <b>Stéréo renforcée</b> ou standard</div>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Gain (dB) <span class="label-opt">— 0 = neutre</span></label>
+        <input class="form-input gain-input" id="src-aes67paste-gain" type="number" value="0" step="1" min="-20" max="20" />
       </div>`,
     alsa: `
       <div class="form-row-2">
