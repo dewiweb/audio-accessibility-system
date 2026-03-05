@@ -4,6 +4,7 @@ FROM node:20-alpine
 RUN apk add --no-cache \
     ffmpeg \
     tzdata \
+    openssl \
     && rm -rf /var/cache/apk/*
 
 # Set timezone
@@ -20,20 +21,24 @@ COPY src/ ./src/
 COPY public/ ./public/
 
 # Create required directories with correct permissions
-RUN mkdir -p public/hls uploads uploads/audio sdp
+RUN mkdir -p public/hls uploads uploads/audio sdp certs
 
 # Non-root user for security
 RUN addgroup -S audioapp && adduser -S audioapp -G audioapp \
     && chown -R audioapp:audioapp /app
 
+# Copy entrypoint
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
+
 # Ensure writable dirs are accessible when mounted as Docker volumes
-VOLUME ["/app/public/hls", "/app/sdp", "/app/uploads"]
+VOLUME ["/app/public/hls", "/app/sdp", "/app/uploads", "/app/certs"]
 
 USER audioapp
 
-EXPOSE 8080
+EXPOSE 8080 8443
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
   CMD wget -qO- http://localhost:8080/api/channels || exit 1
 
-CMD ["node", "src/server.js"]
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

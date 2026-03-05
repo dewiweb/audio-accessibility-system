@@ -17,8 +17,14 @@ services:
       ADMIN_PASSWORD: "votre-mot-de-passe-admin"
       SESSION_SECRET: "une-chaine-aleatoire-longue-ici"
 
-      # IP du serveur Docker visible depuis le WiFi de la salle
-      PUBLIC_URL: "http://192.168.100.251:8080"
+      # URL publique — passer en https si TLS activé
+      PUBLIC_URL: "https://192.168.100.251"
+
+      # HTTPS intégré Node.js (cert auto-généré au démarrage)
+      TLS_CN: "192.168.100.251"
+      HTTPS_PORT: "443"
+      # PORT reste disponible en HTTP (redirect vers HTTPS)
+      # PORT: "80"
 
       # HLS streaming
       HLS_SEGMENT_DURATION: "1"
@@ -38,6 +44,8 @@ services:
       - audio-access-sdp:/app/sdp
       # Segments HLS live
       - audio-access-hls:/app/public/hls
+      # Certificats TLS (persistés entre redémarrages)
+      - audio-access-certs:/app/certs
       # Fichiers audio locaux si besoin
       - /opt/audio-access/audio:/app/audio:ro
 
@@ -51,3 +59,4 @@ volumes:
   audio-access-data:
   audio-access-sdp:
   audio-access-hls:
+  audio-access-certs:
