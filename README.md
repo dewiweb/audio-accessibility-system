@@ -1,23 +1,23 @@
 # 🎧 Audio Accessibility System
 
-> ⚠️ **Work In Progress** — Projet en cours de développement et de test. Non prêt pour la production.
-
 Système de diffusion audio multicanal DIY pour salles de spectacle, conférence et cinéma (~450 places).  
 Conçu pour l'**audiodescription**, le **renforcement audio** (malentendants) et l'**interprétation simultanée multilingue**.
 
-La source audio est reçue via **AES67/RTP** depuis la console son, encodée en **HLS low-latency** par FFmpeg, et servie à des smartphones via une **PWA** (pas d'app à installer).
+La source audio est reçue via **AES67/RTP** depuis la console son, encodée en **HLS** par FFmpeg, et servie à des smartphones via une **PWA** (pas d'app à installer).
 
 ## Statut
 
 | Composant | État |
 |-----------|------|
-| Backend Node.js + HLS streaming | ✅ Implémenté |
-| Réception AES67/RTP multicast | ✅ Implémenté |
-| Interface auditeur (PWA) | ✅ Implémenté |
-| Interface admin régie | ✅ Implémenté |
-| Docker / Portainer | ✅ Implémenté |
-| CI/CD GitHub Actions → GHCR | ✅ Implémenté |
-| Tests en conditions réelles | 🔄 En cours |
+| Backend Node.js + HLS streaming | ✅ Opérationnel |
+| Réception AES67/RTP multicast | ✅ Opérationnel |
+| Source fichier MP3 (loop / arrêt propre) | ✅ Opérationnel |
+| Interface auditeur PWA | ✅ Opérationnel |
+| Interface admin régie | ✅ Opérationnel |
+| Sécurité (HTTPS/TLS, JWT, CSP, bcrypt) | ✅ Opérationnel |
+| Docker / Portainer | ✅ Opérationnel |
+| CI/CD GitHub Actions → GHCR (amd64 + arm64) | ✅ Opérationnel |
+| Tests en conditions réelles (450 clients) | 🔄 En cours |
 | WebRTC (latence < 200ms) | 📋 Prévu |
 
 ## Architecture
@@ -27,22 +27,24 @@ Console son (QSYS/Dante)
    │  flux AES67 — RTP multicast (L24/48000)
    ▼
 Serveur Docker (network_mode: host)
-   │  Node.js + FFmpeg → HLS segments
+   │  Node.js + FFmpeg → HLS segments (HTTPS/TLS 8443)
    ▼
-AP WiFi salle
-   │  HTTP
-   ├──▶ Smartphone auditeur  →  PWA (QR code entrée)
-   └──▶ Tablette régie       →  /admin (dashboard)
+AP WiFi salle (VLAN dédié)
+   │  HTTPS + WSS
+   ├──▶ Smartphone auditeur  →  PWA (QR code entrée, sans app)
+   └──▶ Tablette régie       →  /admin (dashboard temps réel)
 ```
 
 ## Fonctionnalités
 
 - **Réception AES67/RTP** — flux multicast ou via fichier SDP (compatible QSYS, Dante, etc.)
-- **Streaming HLS low-latency** — ~1-3s de latence, compatible tous navigateurs modernes
+- **Streaming HLS** — ~1-3s de latence, compatible tous navigateurs modernes
 - **Multi-canaux simultanés** — audiodesc, renforcement, interprétation simultanée...
-- **PWA installable** — QR code à l'entrée, aucune app à installer
+- **PWA installable** — QR code à l'entrée, aucune app à installer, aucun compte
 - **Interface admin temps réel** — WebSocket, start/stop streams, monitoring listeners
-- **Sources flexibles** — AES67 (prioritaire), RTSP, fichier, tonalité de test, ALSA
+- **Sources flexibles** — AES67 (prioritaire), RTSP, fichier MP3 (loop ou arrêt propre), tonalité de test, ALSA
+- **Sécurité by design** — HTTPS/TLS obligatoire, JWT, bcrypt, CSP avec nonce, validation des entrées
+- **RGPD by design** — aucune donnée personnelle collectée, comptage auditeurs anonyme et agrégé
 
 ## Infrastructure matérielle
 
@@ -51,12 +53,13 @@ recommandations serveur, plan WiFi, topologie réseau, câblage et estimation de
 
 ## Déploiement Docker (via Portainer)
 
-C'est la méthode de déploiement cible. L'image est publiée automatiquement sur GHCR à chaque push sur `main`.
+C'est la méthode de déploiement cible. L'image est publiée automatiquement sur GHCR à chaque tag `v*.*.*`.
 
 ### 1. Récupérer l'image
 
 ```
-ghcr.io/dewiweb/audio-accessibility-system:latest
+ghcr.io/dewiweb/audio-accessibility-system:latest        # amd64
+ghcr.io/dewiweb/audio-accessibility-system:latest-arm64  # arm64 (Raspberry Pi)
 ```
 
 ### 2. Déployer via Portainer
@@ -64,25 +67,29 @@ ghcr.io/dewiweb/audio-accessibility-system:latest
 **Stacks → Add stack → Web editor**, coller le contenu de `portainer-stack.yml` et ajuster :
 
 ```yaml
-ADMIN_PASSWORD: "votre-mot-de-passe"
-PUBLIC_URL: "http://IP-SERVEUR:8080"
+ADMIN_PASSWORD: "votre-mot-de-passe-fort"
+JWT_SECRET: "secret-aleatoire-32-chars-minimum"
+PUBLIC_URL: "https://IP-SERVEUR:8443"
 MULTICAST_INTERFACE: "IP-SERVEUR"   # interface réseau vers la régie AES67
 ```
 
 > ⚠️ **`network_mode: host` est obligatoire** pour la réception des flux RTP multicast AES67. En mode bridge Docker, les paquets UDP multicast ne traversent pas.
 
+> 🔒 Le serveur écoute uniquement en **HTTPS sur le port 8443**. Un certificat TLS auto-signé est généré automatiquement au premier démarrage. Les clients doivent l'accepter ou le faire approuver en CA de confiance.
+
 ### 3. Variables d'environnement
 
 | Variable | Défaut | Description |
 |----------|--------|-------------|
-| `PORT` | `8080` | Port HTTP du serveur |
-| `ADMIN_PASSWORD` | `changeme` | Mot de passe interface admin |
-| `PUBLIC_URL` | — | URL publique pour le QR code |
+| `PORT` | `8443` | Port HTTPS du serveur |
+| `ADMIN_PASSWORD` | `changeme` | Mot de passe interface admin (hashé bcrypt en mémoire) |
+| `JWT_SECRET` | — | Secret JWT (≥ 32 chars, **obligatoire en production**) |
+| `PUBLIC_URL` | — | URL publique HTTPS pour le QR code |
 | `RTP_BUFFER_MS` | `200` | Tampon jitter AES67 en ms |
 | `MULTICAST_INTERFACE` | auto | IP de l'interface réseau vers la régie |
 | `HLS_SEGMENT_DURATION` | `1` | Durée segment HLS en secondes |
-| `HLS_LIST_SIZE` | `3` | Nombre de segments dans la playlist |
-| `AUDIO_BITRATE` | `128k` | Bitrate encodage Opus |
+| `HLS_LIST_SIZE` | `3` | Nombre de segments dans la playlist live |
+| `AUDIO_BITRATE` | `128k` | Bitrate encodage AAC |
 
 ## Configuration des sources audio
 
@@ -104,10 +111,15 @@ Les fichiers `.sdp` sont à déposer dans `sdp/` — ce dossier est monté en vo
 
 ```json
 { "type": "rtsp", "url": "rtsp://192.168.100.x/audio" }
-{ "type": "file", "path": "/app/audio/audiodesc.mp3" }
+{ "type": "file", "path": "/app/uploads/audio/fichier.mp3", "loop": true }
+{ "type": "file", "path": "/app/uploads/audio/fichier.mp3", "loop": false }
 { "type": "testtone", "frequency": 440 }
 { "type": "alsa", "card": 0, "device": 0 }
 ```
+
+Pour les sources `file` :
+- `loop: true` — lecture en boucle infinie (mode live HLS, FFmpeg `-stream_loop -1`)
+- `loop: false` — lecture unique puis arrêt propre du stream (`stream:vod_ended` notifié aux clients)
 
 ## Développement local
 
@@ -119,9 +131,10 @@ cp .env.example .env
 npm run dev
 ```
 
-Interface auditeur : `http://localhost:8080`  
-Interface admin : `http://localhost:8080/admin`
+Interface auditeur : `https://localhost:8443`  
+Interface admin : `https://localhost:8443/admin`
 
+> Le certificat auto-signé généré au démarrage doit être accepté dans le navigateur.
 > Sans source AES67 locale, utiliser la tonalité de test depuis l'interface admin.
 
 ## Test de réception AES67
@@ -142,27 +155,34 @@ docker exec audio-access ffmpeg \
 ```
 audio-accessibility-system/
 ├── .github/workflows/
-│   └── docker-build.yml   # CI/CD → GHCR (build multi-arch amd64/arm64)
+│   └── docker-build.yml      # CI/CD → GHCR (build multi-arch amd64/arm64)
+├── .windsurf/rules/
+│   └── project-rules.md      # Règles workspace (sécurité/a11y/RGPD)
 ├── src/
-│   ├── server.js          # Point d'entrée Express + WebSocket
-│   ├── config.js          # Configuration centralisée
-│   ├── channelManager.js  # Gestion des canaux (CRUD + comptage listeners)
-│   ├── streamManager.js   # FFmpeg HLS engine (AES67, RTSP, fichier...)
-│   ├── wsManager.js       # WebSocket temps réel (auditeurs + admin)
-│   └── routes/api.js      # API REST (public + admin)
+│   ├── server.js             # Point d'entrée Express HTTPS + WebSocket
+│   ├── config.js             # Configuration centralisée
+│   ├── authManager.js        # Authentification bcrypt
+│   ├── tokenManager.js       # Gestion JWT
+│   ├── channelManager.js     # Gestion des canaux (CRUD + comptage listeners)
+│   ├── streamManager.js      # FFmpeg HLS engine (AES67, RTSP, fichier, loop...)
+│   ├── wsManager.js          # WebSocket temps réel (auditeurs + admin)
+│   ├── middleware/
+│   │   └── validate.js       # Validation et sanitisation des entrées API
+│   └── routes/api.js         # API REST (public + admin)
 ├── public/
-│   ├── index.html         # PWA auditeur (sélection canal, lecteur, volume)
-│   ├── admin.html         # Interface régie (dashboard, start/stop streams)
-│   ├── manifest.json      # PWA manifest
-│   └── sw.js              # Service Worker (mode offline partiel)
+│   ├── index.html            # PWA auditeur (sélection canal, lecteur, volume)
+│   ├── admin.html            # Interface régie (dashboard, start/stop streams)
+│   ├── manifest.json         # PWA manifest
+│   └── sw.js                 # Service Worker (cache strict, RGPD by design)
 ├── sdp/
-│   └── QSYS_AES67-2.sdp   # Exemple fichier SDP QSYS
+│   └── QSYS_AES67-2.sdp      # Exemple fichier SDP QSYS
 ├── scripts/
-│   └── test-aes67.sh      # Script de test réception AES67
+│   └── test-aes67.sh         # Script de test réception AES67
 ├── Dockerfile
 ├── docker-compose.yml
-├── portainer-stack.yml    # Stack Portainer prête à l'emploi
-└── DEPLOY-DOCKER.md       # Guide déploiement détaillé
+├── portainer-stack.yml       # Stack Portainer prête à l'emploi
+├── DEPLOY-DOCKER.md          # Guide déploiement détaillé
+└── HARDWARE.md               # Recommandations matérielles (450 clients)
 ```
 
 ## API REST
@@ -186,7 +206,7 @@ audio-accessibility-system/
 
 ## WebSocket
 
-Connexion : `ws://serveur:8080/ws` (auditeur) ou `ws://serveur:8080/ws?admin=true` (admin)
+Connexion : `wss://serveur:8443/ws` (auditeur) ou `wss://serveur:8443/ws?adminToken=<token>` (admin)
 
 | Message → serveur | Action |
 |-------------------|--------|
@@ -199,7 +219,10 @@ Connexion : `ws://serveur:8080/ws` (auditeur) ou `ws://serveur:8080/ws?admin=tru
 | `connected` | Liste initiale des canaux |
 | `public:channels` | Mise à jour liste canaux |
 | `stats:update` | Stats globales (admin) |
-| `stream:started/stopped/error` | Événements stream (admin) |
+| `stream:started` | Stream démarré (admin) |
+| `stream:stopped` | Stream arrêté (admin) |
+| `stream:error` | Erreur stream (admin) |
+| `stream:vod_ended` | Fichier MP3 terminé sans loop (public + admin) |
 
 ## Conformité accessibilité
 
