@@ -1412,6 +1412,19 @@ window.clearSdpContent = function() {
   if (status) status.className = 'sdp-upload-status msg-hidden';
 };
 
+window.updateChannelMapOptionsFor = function(chSelId, rowId, mapSelId) {
+  const n = parseInt(document.getElementById(chSelId)?.value || 2);
+  const row = document.getElementById(rowId);
+  const sel = document.getElementById(mapSelId);
+  if (!row || !sel) return;
+  if (n <= 2) { row.classList.add('channel-map-row-hidden'); sel.value = ''; return; }
+  row.classList.remove('channel-map-row-hidden');
+  const pairs = [];
+  for (let i = 1; i < n; i += 2) pairs.push([i, i + 1]);
+  sel.innerHTML = '<option value="">— tous les canaux (mix) —</option>' +
+    pairs.map(([l, r]) => `<option value="${l},${r}">Canaux ${l}+${r} (L/R)</option>`).join('');
+};
+
 window.updateEditChannelMapOptions = function() {
   const n = parseInt(document.getElementById('edit-aes67-channels')?.value || 2);
   const row = document.getElementById('edit-channel-map-row');
@@ -1527,6 +1540,39 @@ window.updateSourceForm = function() {
       <div class="form-row">
         <label class="form-label">Fichier SDP sélectionné</label>
         <input class="form-input sdp-selected-input" id="src-aes67sdp-path" readonly placeholder="Aucun fichier sélectionné" />
+      </div>
+      <div class="src-hint-section">🎛️ Paramètres audio du flux</div>
+      <div class="form-row-2">
+        <div class="form-row"><label class="form-label">Canaux dans le flux</label>
+          <select class="form-input" id="src-aes67sdp-channels" data-action="update-channel-map-sdp">
+            <option value="2">2 — Stéréo</option>
+            <option value="1">1 — Mono</option>
+            <option value="4">4 — Quad</option>
+            <option value="8">8 — Octo</option>
+            <option value="16">16 — 16ch</option>
+          </select>
+        </div>
+        <div class="form-row"><label class="form-label">Gain (dB) <span class="label-opt">— 0 = neutre</span></label>
+          <input class="form-input gain-input" id="src-aes67sdp-gain" type="number" value="0" step="1" min="-20" max="20" />
+        </div>
+      </div>
+      <div class="form-row channel-map-row-hidden" id="channel-map-row-sdp">
+        <label class="form-label">Paire stéréo à extraire</label>
+        <select class="form-input" id="src-aes67sdp-channelmap">
+          <option value="">— tous les canaux (mix) —</option>
+        </select>
+        <div class="src-hint-grey">Quelle paire mono du flux sera envoyée en stéréo L/R</div>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Downmix vers stéréo</label>
+        <select class="form-input" id="src-aes67sdp-downmix">
+          <option value="">— pas de traitement (flux déjà stéréo) —</option>
+          <option value="mono-to-stereo">Mono → Stéréo — audiodescription (voix dupliquée L+R)</option>
+          <option value="stereo">Stéréo standard (ITU-R BS.775) — downmix 5.1/7.1</option>
+          <option value="stereo-loud">Stéréo renforcée — malentendants (LFE + surround boostés)</option>
+          <option value="binaural">Binaural HRTF — rendu 3D casque</option>
+        </select>
+        <div class="src-hint-grey">Audiodescription : choisir <b>Mono → Stéréo</b> · 5.1/7.1 : choisir <b>Stéréo renforcée</b> ou standard</div>
       </div>`,
 
     'aes67sdp-paste': `
@@ -1542,6 +1588,39 @@ window.updateSourceForm = function() {
           data-action="sdp-content-input"></textarea>
         <div id="sdp-preview" class="sdp-preview msg-hidden"></div>
         <div class="src-hint-grey-md">💡 Le contenu sera sauvegardé automatiquement sur le serveur lors de la création du canal.</div>
+      </div>
+      <div class="src-hint-section">🎛️ Paramètres audio du flux</div>
+      <div class="form-row-2">
+        <div class="form-row"><label class="form-label">Canaux dans le flux</label>
+          <select class="form-input" id="src-aes67paste-channels" data-action="update-channel-map-paste">
+            <option value="2">2 — Stéréo</option>
+            <option value="1">1 — Mono</option>
+            <option value="4">4 — Quad</option>
+            <option value="8">8 — Octo</option>
+            <option value="16">16 — 16ch</option>
+          </select>
+        </div>
+        <div class="form-row"><label class="form-label">Gain (dB) <span class="label-opt">— 0 = neutre</span></label>
+          <input class="form-input gain-input" id="src-aes67paste-gain" type="number" value="0" step="1" min="-20" max="20" />
+        </div>
+      </div>
+      <div class="form-row channel-map-row-hidden" id="channel-map-row-paste">
+        <label class="form-label">Paire stéréo à extraire</label>
+        <select class="form-input" id="src-aes67paste-channelmap">
+          <option value="">— tous les canaux (mix) —</option>
+        </select>
+        <div class="src-hint-grey">Quelle paire mono du flux sera envoyée en stéréo L/R</div>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Downmix vers stéréo</label>
+        <select class="form-input" id="src-aes67paste-downmix">
+          <option value="">— pas de traitement (flux déjà stéréo) —</option>
+          <option value="mono-to-stereo">Mono → Stéréo — audiodescription (voix dupliquée L+R)</option>
+          <option value="stereo">Stéréo standard (ITU-R BS.775) — downmix 5.1/7.1</option>
+          <option value="stereo-loud">Stéréo renforcée — malentendants (LFE + surround boostés)</option>
+          <option value="binaural">Binaural HRTF — rendu 3D casque</option>
+        </select>
+        <div class="src-hint-grey">Audiodescription : choisir <b>Mono → Stéréo</b> · 5.1/7.1 : choisir <b>Stéréo renforcée</b> ou standard</div>
       </div>`,
     alsa: `
       <div class="form-row-2">
@@ -1618,12 +1697,28 @@ function buildSource() {
     case 'aes67sdp-upload': {
       const sdpFile = document.getElementById('src-aes67sdp-path')?.value || '';
       if (!sdpFile) throw new Error('Veuillez sélectionner ou uploader un fichier SDP');
-      return { type: 'aes67', sdpFile };
+      const src = { type: 'aes67', sdpFile };
+      src.channels = parseInt(document.getElementById('src-aes67sdp-channels')?.value || 2);
+      const chMap = document.getElementById('src-aes67sdp-channelmap')?.value || '';
+      if (chMap) src.channelMap = chMap.split(',').map(Number);
+      const dm = document.getElementById('src-aes67sdp-downmix')?.value || '';
+      if (dm && !chMap) src.downmix = dm;
+      const g = parseInt(document.getElementById('src-aes67sdp-gain')?.value || 0);
+      if (g !== 0) src.gain = g;
+      return src;
     }
     case 'aes67sdp-paste': {
       const sdpContent = document.getElementById('src-aes67sdp-content')?.value || '';
       if (!sdpContent.trim()) throw new Error('Veuillez saisir le contenu SDP');
-      return { type: 'aes67', sdpContent };
+      const src = { type: 'aes67', sdpContent };
+      src.channels = parseInt(document.getElementById('src-aes67paste-channels')?.value || 2);
+      const chMap = document.getElementById('src-aes67paste-channelmap')?.value || '';
+      if (chMap) src.channelMap = chMap.split(',').map(Number);
+      const dm = document.getElementById('src-aes67paste-downmix')?.value || '';
+      if (dm && !chMap) src.downmix = dm;
+      const g = parseInt(document.getElementById('src-aes67paste-gain')?.value || 0);
+      if (g !== 0) src.gain = g;
+      return src;
     }
     case 'alsa': return { type, card: parseInt(document.getElementById('src-alsa-card')?.value || 0), device: parseInt(document.getElementById('src-alsa-device')?.value || 0) };
     case 'pulse': return { type, device: document.getElementById('src-pulse-device')?.value || 'default' };
@@ -1743,6 +1838,8 @@ document.addEventListener('change', (e) => {
   switch (el.dataset.action) {
     case 'update-channel-map':      updateChannelMapOptions(); break;
     case 'update-edit-channel-map': updateEditChannelMapOptions(); break;
+    case 'update-channel-map-sdp':  updateChannelMapOptionsFor('src-aes67sdp-channels', 'channel-map-row-sdp', 'src-aes67sdp-channelmap'); break;
+    case 'update-channel-map-paste':updateChannelMapOptionsFor('src-aes67paste-channels', 'channel-map-row-paste', 'src-aes67paste-channelmap'); break;
     case 'sdp-existing-select':  onSdpExistingSelect(); break;
     case 'audio-existing-select':onAudioExistingSelect(); break;
     case 'sdp-file-select':      onSdpFileSelect(el); break;
