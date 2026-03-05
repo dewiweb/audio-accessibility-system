@@ -84,14 +84,12 @@ class StreamManager extends EventEmitter {
     const isFileSource = source.type === 'file';
     const isLoopFile = isFileSource && source.loop === true;
 
-    if (isLoopFile) sourceConfig.inputOptions = ['-stream_loop -1', ...(sourceConfig.inputOptions || [])];
-
     // Sources fichier : mode VOD — FFmpeg encode le fichier entier une fois,
     // écrit EXT-X-ENDLIST, le client HLS.js peut se repositionner librement.
-    // Si loop=true : -stream_loop -1 + mode live (fenêtre glissante, pas EXT-X-ENDLIST).
+    // Si loop=true : même mode VOD, mais FFmpeg est relancé automatiquement à la fin.
     // hls_list_size=0 = tous les segments conservés jusqu'au stopStream().
     // Sources live (AES67, ALSA…) : mode live bas-latence, fenêtre glissante.
-    const outputOptions = isFileSource && !isLoopFile ? [
+    const outputOptions = isFileSource ? [
       '-f hls',
       `-hls_time ${config.audio.hlsSegmentDuration}`,
       '-hls_list_size 0',
@@ -100,14 +98,6 @@ class StreamManager extends EventEmitter {
       '-hls_segment_type mpegts',
       `-hls_segment_filename ${path.join(outputDir, 'seg%05d.ts')}`,
       '-hls_allow_cache 1',
-    ] : isLoopFile ? [
-      '-f hls',
-      `-hls_time ${config.audio.hlsSegmentDuration}`,
-      `-hls_list_size ${config.audio.hlsListSize}`,
-      '-hls_flags delete_segments+append_list+omit_endlist+independent_segments',
-      '-hls_segment_type mpegts',
-      `-hls_segment_filename ${path.join(outputDir, 'seg%05d.ts')}`,
-      '-hls_allow_cache 0',
     ] : [
       '-f hls',
       `-hls_time ${config.audio.hlsSegmentDuration}`,
@@ -188,10 +178,25 @@ class StreamManager extends EventEmitter {
         this.emit('stream:error', { channelId, error: err.message });
       })
       .on('end', () => {
-        if (isFileSource && !isLoopFile) {
-          // Mode VOD non-loop : FFmpeg a terminé l'encodage, playlist complète avec EXT-X-ENDLIST.
-          // Le canal reste actif pour que les clients lisent jusqu'à la fin.
-          // On émet stream:vod_ended pour notifier les clients via WebSocket.
+        if (isFileSource && isLoopFile) {
+          // Mode VOD loop : FFmpeg a terminé l'encodage du fichier entier.
+          // On supprime les anciens segments, puis on relance depuis le début.
+          const stream = this.activeStreams.get(channelId);
+          if (!stream) return;
+          console.log(`[Stream ${channelId}] Loop: restarting...`);
+          try {
+            fs.readdirSync(outputDir)
+              .filter(f => f.endsWith('.ts'))
+              .forEach(f => { try { fs.unlinkSync(path.join(outputDir, f)); } catch {} });
+          } catch {}
+          // Délai court pour laisser les clients finir la lecture de l'itération courante
+          setTimeout(() => {
+            if (!this.activeStreams.has(channelId)) return;
+            this.stopStream(channelId);
+            this.startStream(channelId, source);
+          }, 500);
+        } else if (isFileSource && !isLoopFile) {
+          // Mode VOD non-loop : playlist complète avec EXT-X-ENDLIST.
           console.log(`[Stream ${channelId}] Encoding complete (VOD ready)`);
           const stream = this.activeStreams.get(channelId);
           if (stream) stream.proc = null;

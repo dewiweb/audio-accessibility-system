@@ -554,7 +554,7 @@
       liveMaxLatencyDurationCount: 6,
       liveDurationInfinity: true,
     };
-    const hls = new Hls(isVod ? baseConfig : liveConfig);
+    const hls = new Hls(isVod || isLoopFile ? baseConfig : liveConfig);
     hls.loadSource(url);
     hls.attachMedia(audio);
     hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -564,11 +564,15 @@
       });
     });
     if (isLoopFile) {
-      audio.addEventListener('ended', function onEnded() {
-        console.log('[HLS] audio.ended détecté (loop) — relance...');
-        hls.startLoad(-1);
-        audio.play().catch(() => {});
-      }, { once: false });
+      hls.on(Hls.Events.ERROR, (event, data) => {
+        if (data.details === Hls.ErrorDetails.BUFFER_STALLED_ERROR || data.details === Hls.ErrorDetails.FRAG_LOAD_ERROR) {
+          // Le serveur a relancé FFmpeg et la playlist a redémarré — recharger
+          console.log('[HLS] Loop file ended, reloading from server...');
+          hls.loadSource(url);
+          hls.startLoad(-1);
+          audio.play().catch(() => {});
+        }
+      });
     }
     let networkErrorCount = 0;
     hls.on(Hls.Events.ERROR, (event, data) => {
