@@ -343,6 +343,7 @@
       statusDot.setAttribute('aria-label', 'Connecté');
       subtitle.textContent = 'Connecté — choisissez un canal';
       clearTimeout(reconnectTimer);
+      fetchChannels();
     };
 
     ws.onmessage = (evt) => {
@@ -359,6 +360,19 @@
 
     ws.onerror = () => ws.close();
   }
+
+  async function fetchChannels() {
+    try {
+      const r = await fetch('/api/channels');
+      const data = await r.json();
+      if (JSON.stringify(data) !== JSON.stringify(channels)) {
+        channels = data;
+        renderChannels();
+      }
+    } catch (e) {}
+  }
+
+  setInterval(fetchChannels, 5000);
 
   function handleMessage(msg) {
     switch (msg.type) {
@@ -475,9 +489,14 @@
       });
     });
     hls.on(Hls.Events.ERROR, (event, data) => {
+      console.error('[HLS Error]', data.type, data.details, data.fatal, data.response);
       if (data.fatal) {
-        showToast('Erreur stream. Reconnexion...');
-        setTimeout(() => startHls(url, ch), 3000);
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+          showToast('Stream indisponible. Reconnexion dans 3s…', 3000);
+          setTimeout(() => startHls(url, ch), 3000);
+        } else {
+          showToast('Erreur lecture : ' + data.details, 4000);
+        }
       }
     });
     hlsInstance = hls;
