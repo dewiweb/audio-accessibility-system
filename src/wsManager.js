@@ -55,9 +55,22 @@ class WsManager {
     });
     channelManager.on('listener:joined', (data) => this._broadcastStats());
     channelManager.on('listener:left', (data) => this._broadcastStats());
-    streamManager.on('stream:started', (data) => this._broadcastToAdmins('stream:started', data));
-    streamManager.on('stream:stopped', (data) => this._broadcastToAdmins('stream:stopped', data));
-    streamManager.on('stream:error', (data) => this._broadcastToAdmins('stream:error', data));
+    streamManager.on('stream:started', (data) => {
+      this._broadcastToAdmins('stream:started', data);
+      this._broadcastToAll('public:channels', channelManager.getPublicChannels());
+    });
+    streamManager.on('stream:stopped', (data) => {
+      this._broadcastToAdmins('stream:stopped', data);
+      this._broadcastToAll('public:channels', channelManager.getPublicChannels());
+    });
+    streamManager.on('stream:ended', (data) => {
+      this._broadcastToAdmins('stream:ended', data);
+      this._broadcastToAll('public:channels', channelManager.getPublicChannels());
+    });
+    streamManager.on('stream:error', (data) => {
+      this._broadcastToAdmins('stream:error', data);
+      this._broadcastToAll('public:channels', channelManager.getPublicChannels());
+    });
   }
 
   _handleMessage(clientId, msg) {

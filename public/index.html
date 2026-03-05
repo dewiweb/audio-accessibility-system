@@ -422,19 +422,26 @@
   }
 
   async function playChannel(channelId) {
+    const btn = document.querySelector(`.play-btn[data-id="${channelId}"]`);
+    if (btn) { btn.textContent = '⏳ Connexion…'; btn.disabled = true; }
     try {
       const resp = await fetch(`/api/channels/${channelId}`);
-      if (!resp.ok) throw new Error('Canal introuvable');
+      if (resp.status === 404) {
+        showToast('Ce canal n\'est pas actif. Veuillez patienter.', 3500);
+        renderChannels();
+        return;
+      }
+      if (!resp.ok) throw new Error(`Erreur serveur (${resp.status})`);
       const ch = await resp.json();
 
-      if (Hls) {
+      if (typeof Hls !== 'undefined' && Hls.isSupported()) {
         startHls(ch.hlsUrl, ch);
       } else if (audio.canPlayType('application/vnd.apple.mpegurl')) {
         audio.src = ch.hlsUrl;
-        audio.play().catch(err => showToast('Erreur lecture: ' + err.message));
+        audio.play().catch(err => showToast('Appuyez à nouveau pour démarrer l\'audio'));
         updatePlayerUI(ch);
       } else {
-        showToast('Votre navigateur ne supporte pas le streaming audio.');
+        showToast('Votre navigateur ne supporte pas le streaming audio HLS.');
         return;
       }
 
@@ -444,7 +451,8 @@
       }
       renderChannels();
     } catch (e) {
-      showToast('Erreur: ' + e.message);
+      showToast('Erreur: ' + e.message, 4000);
+      renderChannels();
     }
   }
 
