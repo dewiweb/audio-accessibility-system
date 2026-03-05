@@ -85,14 +85,11 @@ class StreamManager extends EventEmitter {
     const isLoopFile = isFileSource && source.loop === true;
 
     // Sources fichier non-loop : mode VOD — tous segments conservés, EXT-X-ENDLIST final.
-    // Sources fichier loop : -stream_loop -1 + hls_wrap pour recycler la numérotation.
-    //   hls_wrap=N : les numéros de segments bouclent modulo N → seuls N fichiers TS
-    //   existent sur le disque, la playlist reste courte, pas d'accumulation.
-    //   N = 2 × durée_fichier / hls_time (marge ×2 pour que HLS.js ne manque pas de segments).
+    // Sources fichier loop : -stream_loop -1 + fenêtre glissante (delete_segments).
+    //   FFmpeg écrit les segments en temps réel → les segments récents sont toujours présents,
+    //   pas de 404. Identique aux sources live.
     // Sources live (AES67, ALSA…) : fenêtre glissante, delete_segments.
     if (isLoopFile) sourceConfig.inputOptions = ['-stream_loop -1', ...(sourceConfig.inputOptions || [])];
-
-    const loopWrap = 2 * Math.ceil(60 / config.audio.hlsSegmentDuration); // 60s de fenêtre max
 
     const outputOptions = isFileSource && !isLoopFile ? [
       '-f hls',
@@ -104,10 +101,12 @@ class StreamManager extends EventEmitter {
       `-hls_segment_filename ${path.join(outputDir, 'seg%05d.ts')}`,
       '-hls_allow_cache 1',
     ] : isLoopFile ? [
+      // stream_loop -1 : FFmpeg écrit en continu, les segments récents sont toujours présents.
+      // delete_segments + hls_list_size : fenêtre glissante, seuls N segments sur le disque.
+      // Identique aux sources live — pas de 404 car les segments sont écrits en temps réel.
       '-f hls',
       `-hls_time ${config.audio.hlsSegmentDuration}`,
       `-hls_list_size ${config.audio.hlsListSize}`,
-      `-hls_wrap ${loopWrap}`,
       '-hls_flags delete_segments+append_list+omit_endlist+independent_segments',
       '-hls_segment_type mpegts',
       `-hls_segment_filename ${path.join(outputDir, 'seg%05d.ts')}`,
