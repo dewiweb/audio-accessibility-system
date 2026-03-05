@@ -83,6 +83,7 @@ router.get('/channels/:id', (req, res) => {
     color: ch.color,
     hlsUrl: `/hls/${ch.id}/stream.m3u8`,
     listenerCount: ch.listenerCount,
+    sourceType: ch.source?.type || 'unknown',
   });
 });
 
