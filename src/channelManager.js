@@ -31,7 +31,10 @@ class ChannelManager extends EventEmitter {
     try {
       const dir = path.dirname(PERSIST_PATH);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-      const data = Array.from(this.channels.values());
+      const data = Array.from(this.channels.values()).map(ch => {
+        const { active, listenerCount, ...rest } = ch;
+        return rest;
+      });
       fs.writeFileSync(PERSIST_PATH, JSON.stringify(data, null, 2), 'utf8');
     } catch (e) {
       console.warn('[ChannelManager] Could not save channels:', e.message);
