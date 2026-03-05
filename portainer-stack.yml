@@ -34,8 +34,10 @@ services:
     volumes:
       # Persistance données canaux
       - audio-access-data:/app/uploads
-      # Fichiers SDP de la console QSYS AES67
-      - /opt/audio-access/sdp:/app/sdp:ro
+      # Fichiers SDP — rw pour permettre l'upload depuis l'interface admin
+      - audio-access-sdp:/app/sdp
+      # Segments HLS live
+      - audio-access-hls:/app/public/hls
       # Fichiers audio locaux si besoin
       - /opt/audio-access/audio:/app/audio:ro
 
@@ -47,3 +49,5 @@ services:
 
 volumes:
   audio-access-data:
+  audio-access-sdp:
+  audio-access-hls:

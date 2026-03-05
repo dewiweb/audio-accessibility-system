@@ -19,12 +19,15 @@ RUN npm install --production && npm cache clean --force
 COPY src/ ./src/
 COPY public/ ./public/
 
-# Create required directories
+# Create required directories with correct permissions
 RUN mkdir -p public/hls uploads sdp
 
 # Non-root user for security
 RUN addgroup -S audioapp && adduser -S audioapp -G audioapp \
     && chown -R audioapp:audioapp /app
+
+# Ensure writable dirs are accessible when mounted as Docker volumes
+VOLUME ["/app/public/hls", "/app/sdp", "/app/uploads"]
 
 USER audioapp
 
