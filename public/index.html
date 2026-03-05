@@ -320,6 +320,17 @@
   const statusDot = document.getElementById('status-dot');
   const subtitle = document.getElementById('subtitle');
   const channelsList = document.getElementById('channels-list');
+  channelsList.addEventListener('click', (e) => {
+    const btn = e.target.closest('.play-btn');
+    if (!btn) return;
+    console.log('[PWA] click délégué sur', btn.dataset.id);
+    const id = btn.dataset.id;
+    if (currentChannelId === id) {
+      stopPlayback();
+    } else {
+      playChannel(id);
+    }
+  });
   const playerBar = document.getElementById('player-bar');
   const playerName = document.getElementById('player-name');
   const playerIcon = document.getElementById('player-icon');
@@ -423,17 +434,6 @@
       </div>
     `).join('');
 
-    channelsList.querySelectorAll('.play-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const id = btn.dataset.id;
-        if (currentChannelId === id) {
-          stopPlayback();
-        } else {
-          playChannel(id);
-        }
-      });
-    });
   }
 
   async function playChannel(channelId) {
