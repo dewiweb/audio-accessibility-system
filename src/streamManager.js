@@ -103,7 +103,19 @@ class StreamManager extends EventEmitter {
       });
 
     proc.run();
-    this.activeStreams.set(channelId, { proc, source, startedAt: new Date().toISOString(), tempSdp: sourceConfig.tempSdp || null });
+
+    if (sourceConfig.stream) {
+      sourceConfig.stream.pipe(proc.ffmpegProc.stdin, { end: false });
+      proc.ffmpegProc.stdin.on('error', () => {});
+    }
+
+    this.activeStreams.set(channelId, {
+      proc,
+      source,
+      startedAt: new Date().toISOString(),
+      tempSdp: sourceConfig.tempSdp || null,
+      sineStream: sourceConfig.stream || null,
+    });
 
     return { channelId, playlistUrl: `/hls/${channelId}/stream.m3u8` };
   }
@@ -120,6 +132,10 @@ class StreamManager extends EventEmitter {
 
     if (stream.tempSdp && fs.existsSync(stream.tempSdp)) {
       try { fs.unlinkSync(stream.tempSdp); } catch (e) {}
+    }
+
+    if (stream.sineStream) {
+      try { stream.sineStream.destroy(); } catch (e) {}
     }
 
     this.activeStreams.delete(channelId);
@@ -222,18 +238,16 @@ class StreamManager extends EventEmitter {
       case 'testtone': {
         const sineStream = generateSineStream(source.frequency || 440, config.audio.sampleRate);
         return {
-          input: sineStream,
-          inputOptions: [
-            '-f s16le',
-            `-ar ${config.audio.sampleRate}`,
-            '-ac 2',
-          ],
+          input: 'pipe:0',
+          stream: sineStream,
+          inputOptions: ['-f s16le', `-ar ${config.audio.sampleRate}`, '-ac 2'],
         };
       }
       case 'silence': {
         const silenceStream = generateSineStream(0, config.audio.sampleRate);
         return {
-          input: silenceStream,
+          input: 'pipe:0',
+          stream: silenceStream,
           inputOptions: ['-f s16le', `-ar ${config.audio.sampleRate}`, '-ac 2'],
         };
       }
