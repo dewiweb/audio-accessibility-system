@@ -111,6 +111,7 @@ router.get('/channels/:id', (req, res) => {
     hlsUrl: `/hls/${ch.id}/stream.m3u8`,
     listenerCount: ch.listenerCount,
     sourceType: ch.source?.type || 'unknown',
+    sourceLoop: ch.source?.loop === true,
   });
 });
 
