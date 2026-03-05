@@ -98,10 +98,6 @@ class StreamManager extends EventEmitter {
       .output(playlistPath)
       .on('start', (cmd) => {
         console.log(`[Stream ${channelId}] Started: ${cmd}`);
-        if (sourceConfig.stream && proc.ffmpegProc && proc.ffmpegProc.stdin) {
-          sourceConfig.stream.pipe(proc.ffmpegProc.stdin, { end: false });
-          proc.ffmpegProc.stdin.on('error', () => {});
-        }
         channelManager.setActive(channelId, true);
         this.emit('stream:started', { channelId });
       })
@@ -249,7 +245,7 @@ class StreamManager extends EventEmitter {
       case 'testtone': {
         const sineStream = generateSineStream(source.frequency || 440, config.audio.sampleRate);
         return {
-          input: 'pipe:0',
+          input: sineStream,
           stream: sineStream,
           inputOptions: ['-f s16le', `-ar ${config.audio.sampleRate}`, '-ac 2'],
         };
@@ -257,7 +253,7 @@ class StreamManager extends EventEmitter {
       case 'silence': {
         const silenceStream = generateSineStream(0, config.audio.sampleRate);
         return {
-          input: 'pipe:0',
+          input: silenceStream,
           stream: silenceStream,
           inputOptions: ['-f s16le', `-ar ${config.audio.sampleRate}`, '-ac 2'],
         };
