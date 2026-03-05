@@ -13,7 +13,6 @@ services:
 
     environment:
       NODE_ENV: production
-      PORT: "8080"
       HOST: "0.0.0.0"
 
       # Changer ces valeurs !
@@ -26,7 +25,6 @@ services:
       # HTTPS intégré Node.js (cert auto-généré au démarrage)
       TLS_CN: "192.168.100.251"
       HTTPS_PORT: "8443"
-      # PORT: "8080"  # HTTP → redirect HTTPS
 
       # HLS streaming
       HLS_SEGMENT_DURATION: "1"

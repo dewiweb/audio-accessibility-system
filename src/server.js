@@ -6,7 +6,6 @@ const morgan = require('morgan');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
-const http = require('http');
 
 const config = require('./config');
 const apiRoutes = require('./routes/api');
@@ -71,62 +70,37 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message });
 });
 
-const CERT_PATH = process.env.CERT_PATH || path.join(__dirname, '../certs/server.crt');
-const KEY_PATH  = process.env.KEY_PATH  || path.join(__dirname, '../certs/server.key');
+const CERT_PATH  = process.env.CERT_PATH  || path.join(__dirname, '../certs/server.crt');
+const KEY_PATH   = process.env.KEY_PATH   || path.join(__dirname, '../certs/server.key');
 const HTTPS_PORT = parseInt(process.env.HTTPS_PORT) || 8443;
-const tlsAvailable = fs.existsSync(CERT_PATH) && fs.existsSync(KEY_PATH);
 
-const servers = [];
-
-if (tlsAvailable) {
-  // HTTPS server
-  const tlsOptions = {
-    cert: fs.readFileSync(CERT_PATH),
-    key:  fs.readFileSync(KEY_PATH),
-  };
-  const httpsServer = https.createServer(tlsOptions, app);
-  expressWs(app, httpsServer);
-  httpsServer.listen(HTTPS_PORT, config.server.host, () => {
-    console.log(`\n🎧 Audio Accessibility System`);
-    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-    console.log(`  HTTPS   : https://${config.server.host}:${HTTPS_PORT}`);
-    console.log(`  Admin   : https://${config.server.host}:${HTTPS_PORT}/admin`);
-    console.log(`  Public  : ${config.publicUrl}`);
-    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
-  });
-  servers.push(httpsServer);
-
-  // HTTP → redirect HTTPS
-  const redirectApp = express();
-  redirectApp.use((req, res) => {
-    const host = req.headers.host?.replace(/:.*$/, '');
-    res.redirect(301, `https://${host}:${HTTPS_PORT}${req.url}`);
-  });
-  const httpServer = http.createServer(redirectApp);
-  httpServer.listen(config.server.port, config.server.host, () => {
-    console.log(`  HTTP :${config.server.port} → redirect HTTPS :${HTTPS_PORT}`);
-  });
-  servers.push(httpServer);
-} else {
-  // Pas de cert — HTTP seul
-  const server = http.createServer(app);
-  expressWs(app, server);
-  server.listen(config.server.port, config.server.host, () => {
-    console.log(`\n🎧 Audio Accessibility System`);
-    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-    console.log(`  Serveur : http://${config.server.host}:${config.server.port}`);
-    console.log(`  Admin   : http://${config.server.host}:${config.server.port}/admin`);
-    console.log(`  Public  : ${config.publicUrl}`);
-    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
-  });
-  servers.push(server);
+if (!fs.existsSync(CERT_PATH) || !fs.existsSync(KEY_PATH)) {
+  console.error(`[FATAL] Certificats TLS introuvables : ${CERT_PATH} / ${KEY_PATH}`);
+  console.error(`[FATAL] Exécutez docker-entrypoint.sh ou générez les certs manuellement.`);
+  process.exit(1);
 }
+
+const tlsOptions = {
+  cert: fs.readFileSync(CERT_PATH),
+  key:  fs.readFileSync(KEY_PATH),
+};
+
+const server = https.createServer(tlsOptions, app);
+expressWs(app, server);
+
+server.listen(HTTPS_PORT, config.server.host, () => {
+  console.log(`\n🎧 Audio Accessibility System`);
+  console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+  console.log(`  HTTPS   : https://${config.server.host}:${HTTPS_PORT}`);
+  console.log(`  Admin   : https://${config.server.host}:${HTTPS_PORT}/admin`);
+  console.log(`  Public  : ${config.publicUrl}`);
+  console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
+});
 
 // Graceful shutdown
 const shutdown = (sig) => {
   console.log(`${sig} received, shutting down...`);
-  servers.forEach(s => s.close());
-  setTimeout(() => process.exit(0), 2000);
+  server.close(() => process.exit(0));
 };
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT',  () => shutdown('SIGINT'));
