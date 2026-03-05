@@ -44,6 +44,11 @@ AP WiFi salle
 - **Interface admin temps réel** — WebSocket, start/stop streams, monitoring listeners
 - **Sources flexibles** — AES67 (prioritaire), RTSP, fichier, tonalité de test, ALSA
 
+## Infrastructure matérielle
+
+Pour un déploiement en conditions réelles (450 clients simultanés), voir **[HARDWARE.md](HARDWARE.md)** :
+recommandations serveur, plan WiFi, topologie réseau, câblage et estimation de coût.
+
 ## Déploiement Docker (via Portainer)
 
 C'est la méthode de déploiement cible. L'image est publiée automatiquement sur GHCR à chaque push sur `main`.

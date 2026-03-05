@@ -1,6 +1,7 @@
 const { v4: uuidv4 } = require('uuid');
 const channelManager = require('./channelManager');
 const streamManager = require('./streamManager');
+const tokenManager = require('./tokenManager');
 
 class WsManager {
   constructor() {
@@ -10,7 +11,10 @@ class WsManager {
   attach(expressWs, app) {
     app.ws('/ws', (ws, req) => {
       const clientId = uuidv4();
-      const isAdmin = req.query.admin === 'true';
+      // Security by design : le statut admin est vérifié par token HMAC signé,
+      // pas par un simple paramètre ?admin=true non contrôlé.
+      const adminToken = req.query.adminToken || req.headers['x-admin-token'];
+      const isAdmin = adminToken ? tokenManager.verify(adminToken) : false;
       this.clients.set(clientId, { ws, isAdmin, channelId: null, joinedAt: Date.now() });
 
       ws.send(JSON.stringify({
@@ -66,6 +70,10 @@ class WsManager {
     streamManager.on('stream:ended', (data) => {
       this._broadcastToAdmins('stream:ended', data);
       this._broadcastToAll('public:channels', channelManager.getPublicChannels());
+    });
+    streamManager.on('stream:vod_ended', (data) => {
+      this._broadcastToAdmins('stream:vod_ended', data);
+      this._broadcastToAll('stream:vod_ended', data);
     });
     streamManager.on('stream:error', (data) => {
       this._broadcastToAdmins('stream:error', data);

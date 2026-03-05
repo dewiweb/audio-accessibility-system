@@ -62,6 +62,8 @@
       transition: border-color 0.2s;
     }
 
+    .login-card input[type="password"]:focus-visible { border-color: var(--accent); outline: 2px solid var(--accent2); outline-offset: 2px; }
+
     .login-card input[type="password"]:focus { border-color: var(--accent); }
 
     .btn-primary {
@@ -74,6 +76,34 @@
     .btn-primary:hover { opacity: 0.85; }
 
     #login-error { color: var(--red); font-size: 13px; margin-top: 10px; display: none; }
+
+    .btn-logout {
+      padding: 5px 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text2);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn-logout:hover { opacity: 0.8; }
+    .btn-logout:focus-visible { outline: 2px solid var(--accent2); outline-offset: 2px; }
+
+    .btn-settings {
+      padding: 5px 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text2);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn-settings:hover { opacity: 0.8; }
+    .btn-settings:focus-visible { outline: 2px solid var(--accent2); outline-offset: 2px; }
 
     /* LAYOUT */
     #app { display: none; flex-direction: column; height: 100vh; }
@@ -354,31 +384,119 @@
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 3px; }
+
+    /* Classes utilitaires — remplacent les style= inline (CSP no-unsafe-inline) */
+    .login-icon { font-size: 40px; margin-bottom: 16px; }
+    .login-label { text-align: left; display: block; margin-bottom: 5px; }
+    .msg-hidden { display: none; }
+    .msg-error { color: var(--red); font-size: 13px; margin-top: 6px; }
+    .msg-success { color: var(--green); font-size: 13px; margin-top: 6px; }
+    .view-channel-wrap { display: none; }
+    .view-channel-wrap.visible { display: block; }
+    .fieldset-clean { border: none; padding: 0; margin: 0; }
+    .fieldset-source { border: none; padding: 0; margin: 12px 0 0; }
+    .legend-section { margin-bottom: 12px; font-weight: 700; }
+    .icon-input-row { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
+    .icon-input { flex: 1; }
+    .icon-preview { font-size: 24px; min-width: 32px; text-align: center; }
+    .icon-grid { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px; background: var(--surface2); border-radius: 8px; border: 1px solid var(--border); }
+    .color-input { height: 38px; padding: 4px 8px; cursor: pointer; }
+
+    /* renderChannelDetail — template classes */
+    .ch-back-row { margin-bottom: 12px; }
+    .btn-back { background: var(--surface2); color: var(--text2); font-size: 12px; }
+    .ch-status-body { display: flex; align-items: center; gap: 16px; }
+    .ch-status-icon { font-size: 40px; }
+    .ch-status-info { flex: 1; }
+    .ch-status-name { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+    .ch-status-desc { font-size: 13px; color: var(--text2); margin-bottom: 8px; }
+    .ch-status-badges { display: flex; gap: 8px; align-items: center; }
+    .ch-meta-text { font-size: 12px; color: var(--text3); }
+    .btn-delete { margin-left: auto; }
+    .src-type-row { margin-bottom: 12px; }
+    .src-type-label { font-size: 12px; color: var(--text2); }
+    .src-type-value { font-size: 13px; font-weight: 600; margin-left: 8px; }
+    .src-code-block { background: var(--surface2); border-radius: 8px; padding: 12px; font-family: monospace; font-size: 12px; color: var(--accent2); }
+    .sdp-section { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 16px; }
+    .sdp-section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .sdp-section-title { font-size: 12px; font-weight: 600; color: var(--text2); }
+    .sdp-section-actions { display: flex; gap: 6px; }
+    .btn-ghost-sm { background: var(--surface3); color: var(--text2); font-size: 11px; }
+    .btn-sm-text { font-size: 11px; }
+    .sdp-textarea { font-family: monospace; font-size: 12px; }
+    .sdp-preview-row { margin-top: 6px; font-size: 11px; color: var(--text3); }
+    .hls-url-section { margin-top: 14px; }
+    .hls-url-label { font-size: 12px; color: var(--text2); margin-bottom: 8px; }
+    .hls-url-block { background: var(--surface2); border-radius: 8px; padding: 12px; font-family: monospace; font-size: 12px; color: var(--text2); word-break: break-all; }
+    .edit-icon-wrap { position: relative; }
+    .edit-icon-row { display: flex; gap: 6px; align-items: center; }
+    .edit-icon-btn-grid { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; padding: 8px; background: var(--surface2); border-radius: 8px; border: 1px solid var(--border); }
+    .icon-btn { font-size: 18px; background: none; border: 1px solid transparent; border-radius: 6px; padding: 2px 5px; cursor: pointer; transition: background 0.15s; }
+    .icon-btn:hover { background: var(--surface3); }
+
+    /* updateSourceForm / buildIconGrid — template classes */
+    .src-hint { font-size: 12px; color: var(--accent2); margin-bottom: 10px; }
+    .src-hint-sm { font-size: 12px; color: var(--accent2); margin-bottom: 12px; }
+    .src-hint-grey { font-size: 11px; color: var(--text3); margin-top: 4px; }
+    .src-hint-grey-md { font-size: 12px; color: var(--text3); margin-top: 8px; }
+    .src-hint-grey-lg { font-size: 13px; color: var(--text3); }
+    .gain-input { width: 100px; }
+    .sdp-or-separator { display: flex; align-items: center; gap: 10px; margin: 14px 0 10px; color: var(--text3); font-size: 12px; }
+    .sdp-or-line { flex: 1; height: 1px; background: var(--border); }
+    .sdp-dropzone { border: 2px dashed var(--border); border-radius: 10px; padding: 16px; text-align: center; cursor: pointer; transition: border-color 0.2s; font-size: 13px; color: var(--text2); }
+    .sdp-dropzone:hover { border-color: var(--accent); }
+    .input-hidden { display: none; }
+    .sdp-upload-status { font-size: 12px; margin-top: 6px; }
+    .sdp-selected-input { color: var(--accent2); font-size: 12px; }
+    .sdp-preview { margin-top: 6px; font-size: 11px; color: var(--text3); }
+    .src-row-flex { display: flex; gap: 8px; align-items: center; }
+    .src-select-flex { flex: 1; }
+    .sdp-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .sdp-header-label { margin: 0; }
+    .btn-ghost-xs { background: var(--surface3); color: var(--text2); font-size: 11px; white-space: nowrap; }
+    .ch-status-label { font-size: 11px; color: var(--text3); }
+    .sidebar-empty { padding: 20px; text-align: center; color: var(--text3); font-size: 13px; }
+    .label-opt { font-weight: normal; color: var(--text3); }
+    .channel-map-row-hidden { display: none; }
+    .hidden-screen { display: none !important; }
+    .ch-status-live { color: var(--green); }
+    .status-ok     { color: var(--green); }
+    .status-err    { color: var(--red); }
+    .status-accent { color: var(--accent2); }
+    .sdp-dropzone--drag { border-color: var(--accent); }
+    .toggle-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+    .toggle-checkbox { width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent); flex-shrink: 0; }
+    .toggle-label { font-size: 13px; color: var(--text2); cursor: pointer; }
   </style>
 </head>
 <body>
 
 <!-- LOGIN -->
-<div id="login-screen">
+<div id="login-screen" role="main">
   <div class="login-card">
-    <div style="font-size:40px;margin-bottom:16px">🎛️</div>
+    <div class="login-icon" aria-hidden="true">🎛️</div>
     <h1>Régie Audio</h1>
     <p>Accès réservé au personnel technique</p>
-    <input type="password" id="login-pwd" placeholder="Mot de passe admin" autocomplete="current-password" />
-    <button class="btn-primary" id="login-btn">Accéder à la régie</button>
-    <div id="login-error">Mot de passe incorrect</div>
+    <form id="login-form" aria-label="Formulaire de connexion">
+      <label for="login-pwd" class="form-label login-label">Mot de passe</label>
+      <input type="password" id="login-pwd" autocomplete="current-password" placeholder="Mot de passe admin" aria-describedby="login-error" />
+      <button type="submit" class="btn-primary" id="login-btn">Accéder à la régie</button>
+      <div id="login-error" role="alert" aria-live="assertive" class="msg-hidden">Mot de passe incorrect</div>
+    </form>
   </div>
 </div>
 
 <!-- APP -->
 <div id="app">
   <div class="topbar">
-    <div class="topbar-logo">🎛️</div>
+    <div class="topbar-logo" aria-hidden="true">🎛️</div>
     <div class="topbar-title">Régie Audio <span>— Interface Administrateur</span></div>
-    <div class="ws-badge">
-      <div class="ws-dot" id="ws-dot"></div>
-      <span id="ws-label">Déconnecté</span>
+    <div class="ws-badge" aria-label="État connexion WebSocket">
+      <div class="ws-dot" id="ws-dot" aria-hidden="true"></div>
+      <span id="ws-label" aria-live="polite">Déconnecté</span>
     </div>
+    <button class="btn-settings" id="btn-change-pwd" aria-label="Changer le mot de passe administrateur">🔒 MDP</button>
+    <button class="btn-logout" id="btn-logout" aria-label="Se déconnecter de la régie">← Déconnexion</button>
   </div>
 
   <div class="workspace">
@@ -440,7 +558,7 @@
         </div>
 
         <!-- CHANNEL DETAIL -->
-        <div id="view-channel" style="display:none">
+        <div id="view-channel" class="view-channel-wrap">
           <div id="channel-detail-content"></div>
         </div>
       </div>
@@ -448,64 +566,103 @@
   </div>
 </div>
 
-<!-- NEW CHANNEL MODAL -->
-<div class="modal-overlay" id="modal-new">
+<!-- CHANGE PASSWORD MODAL -->
+<div class="modal-overlay" id="modal-change-pwd" role="dialog" aria-modal="true" aria-labelledby="modal-pwd-title">
   <div class="modal">
     <div class="modal-header">
-      <h3>Nouveau canal audio</h3>
-      <button class="modal-close" id="modal-close">✕</button>
+      <h3 id="modal-pwd-title">🔒 Changer le mot de passe</h3>
+      <button class="modal-close" id="modal-pwd-close" aria-label="Fermer">&#x2715;</button>
+    </div>
+    <form id="form-change-pwd">
+      <div class="modal-body">
+        <input type="text" name="username" autocomplete="username" class="input-hidden" aria-hidden="true" tabindex="-1" />
+        <div class="form-row">
+          <label class="form-label" for="pwd-current">Mot de passe actuel</label>
+          <input class="form-input" type="password" id="pwd-current" name="current-password" autocomplete="current-password" placeholder="Mot de passe actuel" />
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="pwd-new">Nouveau mot de passe</label>
+          <input class="form-input" type="password" id="pwd-new" name="new-password" autocomplete="new-password" placeholder="Nouveau mot de passe (min. 8 caractères)" />
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="pwd-confirm">Confirmer le nouveau mot de passe</label>
+          <input class="form-input" type="password" id="pwd-confirm" name="confirm-password" autocomplete="new-password" placeholder="Confirmer le nouveau mot de passe" />
+        </div>
+        <div id="pwd-error" role="alert" aria-live="assertive" class="msg-hidden msg-error"></div>
+        <div id="pwd-success" role="status" aria-live="polite" class="msg-hidden msg-success"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" id="modal-pwd-cancel">Annuler</button>
+        <button type="submit" class="btn-save" id="modal-pwd-save">🔒 Changer le mot de passe</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- NEW CHANNEL MODAL -->
+<div class="modal-overlay" id="modal-new" role="dialog" aria-modal="true" aria-labelledby="modal-new-title">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-new-title">Nouveau canal audio</h3>
+      <button class="modal-close" id="modal-close" aria-label="Fermer">✕</button>
     </div>
     <div class="modal-body">
-      <div class="form-row">
-        <label class="form-label">Nom du canal *</label>
-        <input class="form-input" id="new-name" placeholder="ex: Audiodescription FR" />
-      </div>
-      <div class="form-row">
-        <label class="form-label">Description</label>
-        <input class="form-input" id="new-desc" placeholder="ex: Version française de l'audiodescription" />
-      </div>
-      <div class="form-row-2">
+      <fieldset class="fieldset-clean">
+        <legend class="form-label legend-section">Informations du canal</legend>
         <div class="form-row">
-          <label class="form-label">Langue</label>
-          <select class="form-input" id="new-lang">
-            <option value="fr">🇫🇷 Français</option>
-            <option value="en">🇬🇧 English</option>
-            <option value="es">🇪🇸 Español</option>
-            <option value="de">🇩🇪 Deutsch</option>
-            <option value="ar">🇸🇦 العربية</option>
-            <option value="other">Autre</option>
-          </select>
+          <label class="form-label" for="new-name">Nom du canal *</label>
+          <input class="form-input" id="new-name" placeholder="ex: Audiodescription FR" required aria-required="true" />
         </div>
         <div class="form-row">
-          <label class="form-label">Icône</label>
-          <div>
-            <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">
-              <input class="form-input" id="new-icon" value="🎧" style="flex:1" oninput="document.getElementById('new-icon-preview').textContent=this.value" />
-              <span id="new-icon-preview" style="font-size:24px;min-width:32px;text-align:center">🎧</span>
+          <label class="form-label" for="new-desc">Description</label>
+          <input class="form-input" id="new-desc" placeholder="ex: Version française de l'audiodescription" />
+        </div>
+        <div class="form-row-2">
+          <div class="form-row">
+            <label class="form-label" for="new-lang">Langue</label>
+            <select class="form-input" id="new-lang">
+              <option value="fr">🇫🇷 Français</option>
+              <option value="en">🇬🇧 English</option>
+              <option value="es">🇪🇸 Español</option>
+              <option value="de">🇩🇪 Deutsch</option>
+              <option value="ar">🇸🇦 العربية</option>
+              <option value="other">Autre</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label class="form-label" for="new-icon">Icône (emoji)</label>
+            <div>
+              <div class="icon-input-row">
+                <input class="form-input icon-input" id="new-icon" value="🎧" aria-label="Saisir un emoji pour l'icône" />
+                <span id="new-icon-preview" class="icon-preview" aria-hidden="true">🎧</span>
+              </div>
+              <div id="new-icon-grid" role="group" aria-label="Icônes disponibles" class="icon-grid"></div>
             </div>
-            <div id="new-icon-grid" style="display:flex;flex-wrap:wrap;gap:4px;padding:8px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)"></div>
           </div>
         </div>
-      </div>
-      <div class="form-row">
-        <label class="form-label">Couleur</label>
-        <input type="color" class="form-input" id="new-color" value="#7c6ff7" style="height:38px;padding:4px 8px;cursor:pointer;" />
-      </div>
-      <div class="form-row">
-        <label class="form-label">Type de source audio *</label>
-        <select class="form-input" id="new-source-type" onchange="updateSourceForm()">
-          <option value="aes67">AES67 / Dante (RTP multicast direct)</option>
-          <option value="aes67sdp-upload">📂 AES67 via fichier SDP (upload)</option>
-          <option value="aes67sdp-paste">✏️ AES67 via contenu SDP (coller)</option>
-          <option value="alsa">Interface ALSA (Linux)</option>
-          <option value="pulse">PulseAudio</option>
-          <option value="rtsp">Flux RTSP</option>
-          <option value="file">🎵 Fichier audio (boucle)</option>
-          <option value="testtone">Tonalité de test</option>
-        </select>
-      </div>
+        <div class="form-row">
+          <label class="form-label" for="new-color">Couleur d'accentuation</label>
+          <input type="color" class="form-input color-input" id="new-color" value="#7c6ff7" />
+        </div>
+      </fieldset>
+      <fieldset class="fieldset-source">
+        <legend class="form-label legend-section">Source audio</legend>
+        <div class="form-row">
+          <label class="form-label" for="new-source-type">Type de source *</label>
+          <select class="form-input" id="new-source-type" required aria-required="true">
+            <option value="aes67">AES67 / Dante (RTP multicast direct)</option>
+            <option value="aes67sdp-upload">AES67 via fichier SDP (upload)</option>
+            <option value="aes67sdp-paste">AES67 via contenu SDP (coller)</option>
+            <option value="alsa">Interface ALSA (Linux)</option>
+            <option value="pulse">PulseAudio</option>
+            <option value="rtsp">Flux RTSP</option>
+            <option value="file">Fichier audio (boucle)</option>
+            <option value="testtone">Tonalité de test</option>
+          </select>
+        </div>
+      </fieldset>
       <div class="source-config" id="source-config">
-        <div style="font-size:12px;color:var(--accent2);margin-bottom:10px">🎛️ AES67 — flux RTP multicast depuis console Dante/AES67</div>
+        <div class="src-hint">🎛️ AES67 — flux RTP multicast depuis console Dante/AES67</div>
         <div class="form-row-2">
           <div class="form-row">
             <label class="form-label">Adresse multicast</label>
@@ -530,18 +687,50 @@
 </div>
 
 <script>
-let adminPassword = '';
+// Nettoyer l'URL dès le chargement — supprime les query params sans recharger la page
+// (évite la boucle si le navigateur a mémorisé /admin?username=...&password=...)
+if (window.location.search) {
+  history.replaceState(null, '', '/admin');
+}
+
+// Security by design : le mot de passe n'est utilisé qu'une seule fois au login.
+// Toutes les requêtes suivantes utilisent un token HMAC signé à durée limitée.
+let adminToken = '';
+let tokenExpiry = 0;
 let ws;
 let selectedChannelId = null;
 let allChannels = [];
 let stats = {};
 
+// Vérifie si le token est encore valide (marge de 60s)
+function isTokenValid() {
+  return adminToken && Date.now() < tokenExpiry - 60000;
+}
+
+// Déconnecte si le token a expiré
+function checkTokenExpiry() {
+  if (adminToken && !isTokenValid()) {
+    log('Session expirée — veuillez vous reconnecter.', 'warn');
+    doLogout();
+  }
+}
+setInterval(checkTokenExpiry, 30000);
+
 // --- LOGIN ---
-document.getElementById('login-btn').addEventListener('click', login);
-document.getElementById('login-pwd').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+// Les onsubmit inline sont bloqués par CSP — on utilise addEventListener ici.
+document.getElementById('login-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  login();
+});
+document.getElementById('form-change-pwd').addEventListener('submit', (e) => {
+  e.preventDefault();
+  changePassword();
+});
 
 async function login() {
   const pwd = document.getElementById('login-pwd').value;
+  const errEl = document.getElementById('login-error');
+  errEl.classList.add('msg-hidden');
   try {
     const r = await fetch('/api/admin/auth', {
       method: 'POST',
@@ -549,12 +738,17 @@ async function login() {
       body: JSON.stringify({ password: pwd })
     });
     if (!r.ok) throw new Error();
-    adminPassword = pwd;
-    document.getElementById('login-screen').style.display = 'none';
+    const data = await r.json();
+    // Stocker le token, jamais le mot de passe
+    adminToken = data.token;
+    tokenExpiry = Date.now() + (data.expiresIn || 8 * 3600 * 1000);
+    document.getElementById('login-screen').classList.add('hidden-screen');
     document.getElementById('app').classList.add('visible');
     init();
   } catch {
-    document.getElementById('login-error').style.display = 'block';
+    errEl.classList.remove('msg-hidden');
+    document.getElementById('login-pwd').value = '';
+    document.getElementById('login-pwd').focus();
   }
 }
 
@@ -565,9 +759,8 @@ function buildIconGrid(gridId, inputId, previewId) {
   const grid = document.getElementById(gridId);
   if (!grid) return;
   grid.innerHTML = ICON_LIST.map(e =>
-    `<button type="button" title="${e}" style="font-size:18px;background:none;border:1px solid transparent;border-radius:6px;padding:2px 5px;cursor:pointer;transition:background 0.15s"
-      onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='none'"
-      onclick="document.getElementById('${inputId}').value='${e}';document.getElementById('${previewId}').textContent='${e}'">${e}</button>`
+    `<button type="button" class="icon-btn" title="${e}"
+      data-action="set-icon" data-input="${inputId}" data-preview="${previewId}" data-value="${e}">${e}</button>`
   ).join('');
 }
 
@@ -580,7 +773,9 @@ function init() {
 
 function connectWs() {
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  ws = new WebSocket(`${proto}//${location.host}/ws?admin=true`);
+  // Security by design : le token HMAC est passé dans l'URL WS (seul mécanisme disponible
+  // pour les WebSockets, qui ne supportent pas les headers HTTP personnalisés).
+  ws = new WebSocket(`${proto}//${location.host}/ws?adminToken=${encodeURIComponent(adminToken)}`);
 
   ws.onopen = () => {
     document.getElementById('ws-dot').classList.add('ok');
@@ -658,7 +853,8 @@ async function loadChannels() {
 
 async function loadQr() {
   try {
-    const r = await apiFetch('/api/qrcode');
+    const r = await fetch('/api/qrcode');
+    if (!r.ok) return;
     const data = await r.json();
     document.getElementById('qr-img').src = data.qrcode;
     document.getElementById('qr-url').textContent = data.url;
@@ -668,11 +864,11 @@ async function loadQr() {
 function renderSidebar() {
   const el = document.getElementById('channels-sidebar');
   if (allChannels.length === 0) {
-    el.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">Aucun canal. Créez-en un.</div>`;
+    el.innerHTML = `<div class="sidebar-empty">Aucun canal. Créez-en un.</div>`;
     return;
   }
   el.innerHTML = allChannels.map(ch => `
-    <div class="ch-item ${selectedChannelId === ch.id ? 'selected' : ''}" onclick="selectChannel('${ch.id}')">
+    <div class="ch-item ${selectedChannelId === ch.id ? 'selected' : ''}" data-id="${ch.id}">
       <div class="ch-item-top">
         <div class="ch-dot ${ch.active ? 'live' : ''}"></div>
         <div class="ch-name">${escHtml(ch.name)}</div>
@@ -681,7 +877,7 @@ function renderSidebar() {
       <div class="ch-meta">
         <span class="ch-lang">${ch.language.toUpperCase()}</span>
         <span class="ch-listeners">👥 ${ch.listenerCount}</span>
-        <span style="font-size:11px;color:${ch.active ? 'var(--green)' : 'var(--text3)'}">${ch.active ? '● LIVE' : '○ Arrêté'}</span>
+        <span class="ch-status-label ${ch.active ? 'ch-status-live' : ''}">${ch.active ? '● LIVE' : '○ Arrêté'}</span>
       </div>
     </div>
   `).join('');
@@ -692,8 +888,8 @@ function selectChannel(id) {
   renderSidebar();
   const ch = allChannels.find(c => c.id === id);
   if (!ch) return;
-  document.getElementById('view-overview').style.display = 'none';
-  document.getElementById('view-channel').style.display = 'block';
+  document.getElementById('view-overview').classList.add('hidden-screen');
+  document.getElementById('view-channel').classList.add('visible');
   document.getElementById('content-title').textContent = ch.name;
   renderChannelDetail(ch);
 }
@@ -701,8 +897,8 @@ function selectChannel(id) {
 function showOverview() {
   selectedChannelId = null;
   renderSidebar();
-  document.getElementById('view-overview').style.display = 'block';
-  document.getElementById('view-channel').style.display = 'none';
+  document.getElementById('view-overview').classList.remove('hidden-screen');
+  document.getElementById('view-channel').classList.remove('visible');
   document.getElementById('content-title').textContent = 'Vue d\'ensemble';
 }
 
@@ -723,68 +919,63 @@ function renderChannelDetail(ch) {
   const isAes67 = ch.source?.type === 'aes67';
 
   el.innerHTML = `
-    <div style="margin-bottom:12px">
-      <button class="btn-sm" style="background:var(--surface2);color:var(--text2);font-size:12px" onclick="showOverview()">← Vue d'ensemble</button>
+    <div class="ch-back-row">
+      <button class="btn-sm btn-back" data-action="show-overview">← Vue d'ensemble</button>
     </div>
     <div class="detail-card">
       <div class="detail-card-header">Statut du canal</div>
-      <div class="detail-card-body" style="display:flex;align-items:center;gap:16px">
-        <div style="font-size:40px">${ch.icon}</div>
-        <div style="flex:1">
-          <div style="font-size:18px;font-weight:700;margin-bottom:4px">${escHtml(ch.name)}</div>
-          <div style="font-size:13px;color:var(--text2);margin-bottom:8px">${escHtml(ch.description || '')}</div>
-          <div style="display:flex;gap:8px;align-items:center">
+      <div class="detail-card-body ch-status-body">
+        <div class="ch-status-icon">${ch.icon}</div>
+        <div class="ch-status-info">
+          <div class="ch-status-name">${escHtml(ch.name)}</div>
+          <div class="ch-status-desc">${escHtml(ch.description || '')}</div>
+          <div class="ch-status-badges">
             ${ch.active
               ? '<span class="live-badge">● EN DIRECT</span>'
-              : '<span class="offline-badge">○ ARRÊTÉ</span>'}
-            <span style="font-size:12px;color:var(--text3)">👥 ${ch.listenerCount} auditeur(s)</span>
-            <span style="font-size:12px;color:var(--text3)">${ch.language.toUpperCase()}</span>
+              : '<span class="offline-badge">○ ARRÉTÉ</span>'}
+            <span class="ch-meta-text">👥 ${ch.listenerCount} auditeur(s)</span>
+            <span class="ch-meta-text">${ch.language.toUpperCase()}</span>
           </div>
         </div>
       </div>
       <div class="stream-controls">
         ${!ch.active ? `
-          <button class="btn-sm btn-green" onclick="startStream('${ch.id}')">▶ Démarrer</button>
-          <button class="btn-sm btn-yellow" onclick="startTestTone('${ch.id}')">♪ Tonalité test</button>
+          <button class="btn-sm btn-green" data-action="start-stream" data-id="${ch.id}">▶ Démarrer</button>
+          <button class="btn-sm btn-yellow" data-action="start-testtone" data-id="${ch.id}">♪ Tonalité test</button>
         ` : `
-          <button class="btn-sm btn-red" onclick="stopStream('${ch.id}')">■ Arrêter</button>
-          <button class="btn-sm btn-yellow" onclick="restartStream('${ch.id}')">↺ Relancer</button>
+          <button class="btn-sm btn-red" data-action="stop-stream" data-id="${ch.id}">■ Arrêter</button>
+          <button class="btn-sm btn-yellow" data-action="restart-stream" data-id="${ch.id}">↺ Relancer</button>
         `}
-        <button class="btn-sm btn-ghost" onclick="deleteChannel('${ch.id}')" style="margin-left:auto">🗑 Supprimer</button>
+        <button class="btn-sm btn-ghost btn-delete" data-action="delete-channel" data-id="${ch.id}">🗑 Supprimer</button>
       </div>
     </div>
 
     <div class="detail-card">
       <div class="detail-card-header">Configuration source audio</div>
       <div class="detail-card-body">
-        <div style="margin-bottom:12px">
-          <span style="font-size:12px;color:var(--text2)">Type:</span>
-          <span style="font-size:13px;font-weight:600;margin-left:8px">${ch.source?.type || '?'}</span>
+        <div class="src-type-row">
+          <span class="src-type-label">Type :</span>
+          <span class="src-type-value">${ch.source?.type || '?'}</span>
         </div>
-        <div style="background:var(--surface2);border-radius:8px;padding:12px;font-family:monospace;font-size:12px;color:var(--accent2)">
-          ${escHtml(sourceLabel)}
-        </div>
+        <div class="src-code-block">${escHtml(sourceLabel)}</div>
         ${isAes67 ? `
-        <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-            <span style="font-size:12px;font-weight:600;color:var(--text2)">📄 Contenu SDP</span>
-            <div style="display:flex;gap:6px">
-              <button class="btn-sm" style="background:var(--surface3);color:var(--text2);font-size:11px" onclick="clearEditSdp('${ch.id}')">Effacer</button>
-              <button class="btn-sm btn-green" style="font-size:11px" onclick="saveEditSdp('${ch.id}')">💾 Sauvegarder</button>
-              <button class="btn-sm btn-add" style="font-size:11px" onclick="applyEditSdp('${ch.id}')">✓ Appliquer au canal</button>
+        <div class="sdp-section">
+          <div class="sdp-section-header">
+            <span class="sdp-section-title">📄 Contenu SDP</span>
+            <div class="sdp-section-actions">
+              <button class="btn-sm btn-ghost-sm" data-action="clear-edit-sdp" data-id="${ch.id}">Effacer</button>
+              <button class="btn-sm btn-green btn-sm-text" data-action="save-edit-sdp" data-id="${ch.id}">💾 Sauvegarder</button>
+              <button class="btn-sm btn-add btn-sm-text" data-action="apply-edit-sdp" data-id="${ch.id}">✓ Appliquer au canal</button>
             </div>
           </div>
-          <textarea class="form-input" id="edit-sdp-${ch.id}" rows="8"
-            style="font-family:monospace;font-size:12px"
-            placeholder="Coller ici le contenu SDP exporté depuis la console (v=0...)" 
-            oninput="onEditSdpInput('${ch.id}', this)">${escHtml(currentSdpContent)}</textarea>
-          <div id="edit-sdp-preview-${ch.id}" style="margin-top:6px;font-size:11px;color:var(--text3)"></div>
+          <textarea class="form-input sdp-textarea" id="edit-sdp-${ch.id}" rows="8"
+            placeholder="Coller ici le contenu SDP exporté depuis la console (v=0...)"
+            data-action="edit-sdp-input" data-id="${ch.id}">${escHtml(currentSdpContent)}</textarea>
+          <div id="edit-sdp-preview-${ch.id}" class="sdp-preview-row"></div>
         </div>` : ''}
-        <div style="margin-top:14px">
-          <div style="font-size:12px;color:var(--text2);margin-bottom:8px">URL HLS :</div>
-          <div style="background:var(--surface2);border-radius:8px;padding:12px;font-family:monospace;font-size:12px;color:var(--text2);word-break:break-all">
-            /hls/${ch.id}/stream.m3u8
-          </div>
+        <div class="hls-url-section">
+          <div class="hls-url-label">URL HLS :</div>
+          <div class="hls-url-block">/hls/${ch.id}/stream.m3u8</div>
         </div>
       </div>
     </div>
@@ -794,41 +985,49 @@ function renderChannelDetail(ch) {
       <div class="detail-card-body">
         <div class="form-row-2">
           <div class="form-row">
-            <label class="form-label">Nom</label>
+            <label class="form-label" for="edit-name">Nom</label>
             <input class="form-input" id="edit-name" value="${escHtml(ch.name)}" />
           </div>
           <div class="form-row">
-            <label class="form-label">Langue</label>
+            <label class="form-label" for="edit-lang">Langue</label>
             <select class="form-input" id="edit-lang">
               ${['fr','en','es','de','ar','other'].map(l => `<option value="${l}" ${ch.language===l?'selected':''}>${l.toUpperCase()}</option>`).join('')}
             </select>
           </div>
         </div>
         <div class="form-row">
-          <label class="form-label">Description</label>
+          <label class="form-label" for="edit-desc">Description</label>
           <input class="form-input" id="edit-desc" value="${escHtml(ch.description || '')}" />
         </div>
         <div class="form-row-2">
           <div class="form-row">
-            <label class="form-label">Icône</label>
-            <div style="position:relative">
-              <div style="display:flex;gap:6px;align-items:center">
-                <input class="form-input" id="edit-icon" value="${ch.icon}" style="flex:1" oninput="document.getElementById('edit-icon-preview').textContent=this.value" />
-                <span id="edit-icon-preview" style="font-size:24px;min-width:32px;text-align:center">${ch.icon}</span>
+            <label class="form-label" for="edit-icon">Icône</label>
+            <div class="edit-icon-wrap">
+              <div class="edit-icon-row">
+                <input class="form-input icon-input" id="edit-icon" value="${ch.icon}" data-action="update-icon-preview" data-preview="edit-icon-preview" />
+                <span id="edit-icon-preview" class="icon-preview">${ch.icon}</span>
               </div>
-              <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;padding:8px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)">
+              <div class="edit-icon-btn-grid">
                 ${['🎧','🎵','🎶','🔊','📻','🎙','🎤','🎼','🎹','🎸','🥁','🎺','🎻','🎷','🔔','📢','💬','🌍','🌐','♿','👂','🦻','💡','⭐','🎯','🎭','🏛','🎪'].map(e =>
-                  `<button type="button" title="${e}" style="font-size:18px;background:none;border:1px solid transparent;border-radius:6px;padding:2px 5px;cursor:pointer;transition:background 0.15s" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='none'" onclick="document.getElementById('edit-icon').value='${e}';document.getElementById('edit-icon-preview').textContent='${e}'">${e}</button>`
+                  `<button type="button" class="icon-btn" title="${e}" data-action="set-icon" data-input="edit-icon" data-preview="edit-icon-preview" data-value="${e}">${e}</button>`
                 ).join('')}
               </div>
             </div>
           </div>
           <div class="form-row">
-            <label class="form-label">Couleur</label>
-            <input type="color" class="form-input" id="edit-color" value="${ch.color || '#7c6ff7'}" style="height:38px;padding:4px 8px;cursor:pointer;" />
+            <label class="form-label" for="edit-color">Couleur</label>
+            <input type="color" class="form-input color-input" id="edit-color" value="${ch.color || '#7c6ff7'}" />
           </div>
         </div>
-        <button class="btn-sm btn-add" onclick="saveChannelEdit('${ch.id}')">💾 Enregistrer</button>
+        ${ch.source?.type === 'file' ? `
+        <div class="form-row">
+          <label class="form-label">Lecture en boucle</label>
+          <div class="toggle-row">
+            <input type="checkbox" id="edit-file-loop" class="toggle-checkbox" ${ch.source?.loop ? 'checked' : ''} />
+            <label for="edit-file-loop" class="toggle-label">Rejouer automatiquement depuis le début à la fin du fichier</label>
+          </div>
+        </div>` : ''}
+        <button class="btn-sm btn-add" data-action="save-channel-edit" data-id="${ch.id}">💾 Enregistrer</button>
       </div>
     </div>
   `;
@@ -938,6 +1137,7 @@ window.applyEditSdp = async function(id) {
 };
 
 async function saveChannelEdit(id) {
+  const ch = allChannels.find(c => c.id === id);
   const updates = {
     name: document.getElementById('edit-name').value,
     description: document.getElementById('edit-desc').value,
@@ -945,6 +1145,10 @@ async function saveChannelEdit(id) {
     icon: document.getElementById('edit-icon').value,
     color: document.getElementById('edit-color').value,
   };
+  const loopEl = document.getElementById('edit-file-loop');
+  if (loopEl && ch?.source?.type === 'file') {
+    updates.source = { ...ch.source, loop: loopEl.checked };
+  }
   try {
     await apiFetch(`/api/admin/channels/${id}`, { method: 'PUT', body: JSON.stringify(updates) });
     log('Canal mis à jour', 'success');
@@ -983,8 +1187,7 @@ window.onSdpExistingSelect = function() {
   document.getElementById('src-aes67sdp-path').value = opt.value;
   const status = document.getElementById('sdp-upload-status');
   if (status) {
-    status.style.display = 'block';
-    status.style.color = 'var(--accent2)';
+    status.className = 'sdp-upload-status status-accent';
     status.textContent = `✓ Fichier sélectionné : ${opt.dataset.filename || opt.value}`;
   }
 };
@@ -997,7 +1200,7 @@ window.onSdpFileSelect = async function(input) {
 
 window.onSdpDrop = async function(event) {
   event.preventDefault();
-  document.getElementById('sdp-dropzone').style.borderColor = 'var(--border)';
+  document.getElementById('sdp-dropzone').classList.remove('sdp-dropzone--drag');
   const file = event.dataTransfer.files[0];
   if (!file) return;
   await uploadSdpFile(file);
@@ -1005,26 +1208,25 @@ window.onSdpDrop = async function(event) {
 
 async function uploadSdpFile(file) {
   const status = document.getElementById('sdp-upload-status');
-  status.style.display = 'block';
-  status.style.color = 'var(--text2)';
+  status.className = 'sdp-upload-status';
   status.textContent = `⏳ Upload de ${file.name}…`;
   const formData = new FormData();
   formData.append('sdpfile', file);
   try {
     const r = await fetch('/api/admin/sdp/upload', {
       method: 'POST',
-      headers: { 'x-admin-password': adminPassword },
+      headers: { 'x-admin-token': adminToken },
       body: formData,
     });
     if (!r.ok) { const d = await r.json(); throw new Error(d.error); }
     const data = await r.json();
-    status.style.color = 'var(--green)';
+    status.className = 'sdp-upload-status status-ok';
     status.textContent = `✓ ${data.filename} uploadé (${data.size} octets)`;
     const pathEl = document.getElementById('src-aes67sdp-path');
     if (pathEl) pathEl.value = data.path;
     loadSdpList();
   } catch (e) {
-    status.style.color = 'var(--red)';
+    status.className = 'sdp-upload-status status-err';
     status.textContent = `✗ Erreur : ${e.message}`;
   }
 }
@@ -1056,8 +1258,7 @@ window.onAudioExistingSelect = function() {
   if (pathInput) pathInput.value = opt.value;
   const status = document.getElementById('audio-upload-status');
   if (status) {
-    status.style.display = 'block';
-    status.style.color = 'var(--accent2)';
+    status.className = 'sdp-upload-status status-accent';
     status.textContent = `✓ Fichier sélectionné : ${opt.dataset.filename}`;
   }
 };
@@ -1071,7 +1272,7 @@ window.onAudioFileSelect = async function(input) {
 window.onAudioDrop = async function(event) {
   event.preventDefault();
   const dz = document.getElementById('audio-dropzone');
-  if (dz) dz.style.borderColor = 'var(--border)';
+  if (dz) dz.classList.remove('sdp-dropzone--drag');
   const file = event.dataTransfer.files[0];
   if (!file) return;
   await uploadAudioFile(file);
@@ -1079,23 +1280,23 @@ window.onAudioDrop = async function(event) {
 
 async function uploadAudioFile(file) {
   const status = document.getElementById('audio-upload-status');
-  if (status) { status.style.display = 'block'; status.style.color = 'var(--text2)'; status.textContent = `⏳ Upload de ${file.name} (${Math.round(file.size / 1024)} ko)…`; }
+  if (status) { status.className = 'sdp-upload-status'; status.textContent = `⏳ Upload de ${file.name} (${Math.round(file.size / 1024)} ko)…`; }
   const formData = new FormData();
   formData.append('audiofile', file);
   try {
     const r = await fetch('/api/admin/audio/upload', {
       method: 'POST',
-      headers: { 'x-admin-password': adminPassword },
+      headers: { 'x-admin-token': adminToken },
       body: formData,
     });
     if (!r.ok) { const d = await r.json(); throw new Error(d.error || r.status); }
     const data = await r.json();
     const pathInput = document.getElementById('src-file-path');
     if (pathInput) pathInput.value = data.path;
-    if (status) { status.style.color = 'var(--green)'; status.textContent = `✓ ${data.filename} uploadé (${Math.round(data.size / 1024)} ko)`; }
+    if (status) { status.className = 'sdp-upload-status status-ok'; status.textContent = `✓ ${data.filename} uploadé (${Math.round(data.size / 1024)} ko)`; }
     loadAudioList();
   } catch (e) {
-    if (status) { status.style.color = 'var(--red)'; status.textContent = `✗ Erreur : ${e.message}`; }
+    if (status) { status.className = 'sdp-upload-status status-err'; status.textContent = `✗ Erreur : ${e.message}`; }
     log('Erreur upload audio : ' + e.message, 'error');
   }
 }
@@ -1106,14 +1307,14 @@ window.onSdpContentInput = function(textarea) {
   const preview = document.getElementById('sdp-preview');
   if (saveBtn) saveBtn.disabled = !content;
   if (!preview) return;
-  if (!content) { preview.style.display = 'none'; return; }
+  if (!content) { preview.classList.add('msg-hidden'); return; }
   const lines = content.split('\n');
   const session = lines.find(l => l.startsWith('s='))?.slice(2) || '—';
   const conn = lines.find(l => l.startsWith('c='))?.match(/(\d+\.\d+\.\d+\.\d+)/)?.[1] || '—';
   const media = lines.find(l => l.startsWith('m=audio'));
   const port = media?.split(' ')[1] || '—';
   const rtpmap = lines.find(l => l.startsWith('a=rtpmap:'))?.replace('a=rtpmap:', '') || '—';
-  preview.style.display = 'block';
+  preview.classList.remove('msg-hidden');
   preview.innerHTML = `📋 <b>Session:</b> ${session} &nbsp;|&nbsp; <b>Multicast:</b> ${conn}:${port} &nbsp;|&nbsp; <b>Format:</b> ${rtpmap}`;
 };
 
@@ -1133,8 +1334,7 @@ window.saveSdpContent = async function() {
     const data = await r.json();
     document.getElementById('src-aes67sdp-path').value = data.path;
     const status = document.getElementById('sdp-upload-status');
-    status.style.display = 'block';
-    status.style.color = 'var(--green)';
+    status.className = 'sdp-upload-status status-ok';
     status.textContent = `✓ Sauvegardé : ${data.filename}`;
     loadSdpList();
   } catch (e) {
@@ -1150,7 +1350,7 @@ window.clearSdpContent = function() {
   const sel = document.getElementById('src-sdp-existing');
   if (sel) sel.value = '';
   const status = document.getElementById('sdp-upload-status');
-  if (status) status.style.display = 'none';
+  if (status) status.className = 'sdp-upload-status msg-hidden';
 };
 
 window.updateChannelMapOptions = function() {
@@ -1158,8 +1358,8 @@ window.updateChannelMapOptions = function() {
   const row = document.getElementById('channel-map-row');
   const sel = document.getElementById('src-aes67-channelmap');
   if (!row || !sel) return;
-  if (n <= 2) { row.style.display = 'none'; sel.value = ''; return; }
-  row.style.display = 'block';
+  if (n <= 2) { row.classList.add('channel-map-row-hidden'); sel.value = ''; return; }
+  row.classList.remove('channel-map-row-hidden');
   const pairs = [];
   for (let i = 1; i < n; i += 2) pairs.push([i, i + 1]);
   sel.innerHTML = '<option value="">— tous les canaux (mix) —</option>' +
@@ -1170,7 +1370,7 @@ window.updateSourceForm = function() {
   const type = document.getElementById('new-source-type').value;
   const configs = {
     aes67: `
-      <div style="font-size:12px;color:var(--accent2);margin-bottom:10px">🎛️ AES67 — flux RTP multicast depuis console Dante/AES67</div>
+      <div class="src-hint">🎛️ AES67 — flux RTP multicast depuis console Dante/AES67</div>
       <div class="form-row-2">
         <div class="form-row"><label class="form-label">Adresse multicast</label><input class="form-input" id="src-aes67-addr" placeholder="239.69.x.x" /></div>
         <div class="form-row"><label class="form-label">Port UDP</label><input class="form-input" id="src-aes67-port" value="5004" type="number" /></div>
@@ -1184,7 +1384,7 @@ window.updateSourceForm = function() {
           </select>
         </div>
         <div class="form-row"><label class="form-label">Canaux dans le flux</label>
-          <select class="form-input" id="src-aes67-channels" onchange="updateChannelMapOptions()">
+          <select class="form-input" id="src-aes67-channels" data-action="update-channel-map">
             <option value="2">2 — Stéréo</option>
             <option value="1">1 — Mono</option>
             <option value="4">4 — Quad</option>
@@ -1193,12 +1393,12 @@ window.updateSourceForm = function() {
           </select>
         </div>
       </div>
-      <div class="form-row" id="channel-map-row" style="display:none">
+      <div class="form-row channel-map-row-hidden" id="channel-map-row">
         <label class="form-label">Paire stéréo à extraire</label>
         <select class="form-input" id="src-aes67-channelmap">
           <option value="">— tous les canaux (mix) —</option>
         </select>
-        <div style="font-size:11px;color:var(--text3);margin-top:4px">Sélectionnez quelle paire de canaux mono du flux sera envoyée en stéréo L/R</div>
+        <div class="src-hint-grey">Sélectionnez quelle paire de canaux mono du flux sera envoyée en stéréo L/R</div>
       </div>
       <div class="form-row" id="downmix-row">
         <label class="form-label">Downmix vers stéréo</label>
@@ -1209,12 +1409,12 @@ window.updateSourceForm = function() {
           <option value="stereo-loud">Stéréo renforcée — malentendants (LFE + surround boostés)</option>
           <option value="binaural">Binaural HRTF — rendu 3D casque</option>
         </select>
-        <div style="font-size:11px;color:var(--text3);margin-top:4px">Audiodescription : choisir <b>Mono → Stéréo</b> · 5.1/7.1 : choisir <b>Stéréo renforcée</b> ou standard</div>
+        <div class="src-hint-grey">Audiodescription : choisir <b>Mono → Stéréo</b> · 5.1/7.1 : choisir <b>Stéréo renforcée</b> ou standard</div>
       </div>
       <div class="form-row">
-        <label class="form-label">Gain (dB) <span style="font-weight:normal;color:var(--text3)">— optionnel, 0 = pas de changement</span></label>
-        <input class="form-input" id="src-aes67-gain" type="number" value="0" step="1" min="-20" max="20" placeholder="0" style="width:100px" />
-        <div style="font-size:11px;color:var(--text3);margin-top:4px">+6 dB = doubler le volume · −6 dB = réduire de moitié · utile pour audiodescription</div>
+        <label class="form-label">Gain (dB) <span class="label-opt">— optionnel, 0 = pas de changement</span></label>
+        <input class="form-input gain-input" id="src-aes67-gain" type="number" value="0" step="1" min="-20" max="20" placeholder="0" />
+        <div class="src-hint-grey">+6 dB = doubler le volume · −6 dB = réduire de moitié · utile pour audiodescription</div>
       </div>
       <div class="form-row-2">
         <div class="form-row"><label class="form-label">Sample rate (Hz)</label>
@@ -1227,53 +1427,49 @@ window.updateSourceForm = function() {
         <div class="form-row"><label class="form-label">Interface réseau (optionnel)</label><input class="form-input" id="src-aes67-iface" placeholder="laisser vide = auto" /></div>
       </div>`,
     'aes67sdp-upload': `
-      <div style="font-size:12px;color:var(--accent2);margin-bottom:12px">� AES67 via fichier SDP — uploader un fichier .sdp exporté depuis la console Dante/AES67</div>
+      <div class="src-hint-sm">📂 AES67 via fichier SDP — uploader un fichier .sdp exporté depuis la console Dante/AES67</div>
 
       <div class="form-row">
         <label class="form-label">Fichiers SDP déjà sur le serveur</label>
-        <div style="display:flex;gap:8px;align-items:center">
-          <select class="form-input" id="src-sdp-existing" style="flex:1" onchange="onSdpExistingSelect()">
+        <div class="src-row-flex">
+          <select class="form-input src-select-flex" id="src-sdp-existing" data-action="sdp-existing-select">
             <option value="">— sélectionner un fichier existant —</option>
           </select>
-          <button type="button" class="btn-sm" style="background:var(--surface3);color:var(--text2);white-space:nowrap" onclick="loadSdpList()">↺ Rafraîchir</button>
+          <button type="button" class="btn-sm btn-ghost-xs" data-action="load-sdp-list">↺ Rafraîchir</button>
         </div>
       </div>
 
-      <div style="display:flex;align-items:center;gap:10px;margin:14px 0 10px;color:var(--text3);font-size:12px">
-        <div style="flex:1;height:1px;background:var(--border)"></div>ou uploader un nouveau fichier<div style="flex:1;height:1px;background:var(--border)"></div>
+      <div class="sdp-or-separator">
+        <div class="sdp-or-line"></div>ou uploader un nouveau fichier<div class="sdp-or-line"></div>
       </div>
 
       <div class="form-row">
         <label class="form-label">Uploader un fichier .sdp</label>
-        <div id="sdp-dropzone" style="border:2px dashed var(--border);border-radius:10px;padding:16px;text-align:center;cursor:pointer;transition:border-color 0.2s;font-size:13px;color:var(--text2)"
-             onclick="document.getElementById('src-sdp-file-input').click()"
-             ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
-             ondragleave="this.style.borderColor='var(--border)'"
-             ondrop="onSdpDrop(event)">
+        <div id="sdp-dropzone" class="sdp-dropzone" data-action="sdp-dropzone-click">
           📂 Cliquer ou glisser-déposer un fichier .sdp ici
-          <input type="file" id="src-sdp-file-input" accept=".sdp,text/plain" style="display:none" onchange="onSdpFileSelect(this)" />
+          <input type="file" id="src-sdp-file-input" class="input-hidden" accept=".sdp,text/plain" data-action="sdp-file-select" />
         </div>
-        <div id="sdp-upload-status" style="font-size:12px;margin-top:6px;display:none"></div>
+        <div id="sdp-upload-status" class="sdp-upload-status msg-hidden"></div>
       </div>
 
-      <div class="form-row" style="margin-top:10px">
+      <div class="form-row">
         <label class="form-label">Fichier SDP sélectionné</label>
-        <input class="form-input" id="src-aes67sdp-path" readonly placeholder="Aucun fichier sélectionné" style="color:var(--accent2);font-size:12px" />
+        <input class="form-input sdp-selected-input" id="src-aes67sdp-path" readonly placeholder="Aucun fichier sélectionné" />
       </div>`,
 
     'aes67sdp-paste': `
-      <div style="font-size:12px;color:var(--accent2);margin-bottom:12px">✏️ AES67 via contenu SDP — coller ou saisir le contenu SDP directement</div>
+      <div class="src-hint-sm">✏️ AES67 via contenu SDP — coller ou saisir le contenu SDP directement</div>
 
       <div class="form-row">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-          <label class="form-label" style="margin:0">Contenu SDP</label>
-          <button type="button" class="btn-sm" style="background:var(--surface3);color:var(--text2);font-size:11px" onclick="clearSdpContent()">Effacer</button>
+        <div class="sdp-header-row">
+          <label class="form-label sdp-header-label">Contenu SDP</label>
+          <button type="button" class="btn-sm btn-ghost-xs" data-action="clear-sdp-content">Effacer</button>
         </div>
-        <textarea class="form-input" id="src-aes67sdp-content" rows="7"
+        <textarea class="form-input sdp-textarea" id="src-aes67sdp-content" rows="7"
           placeholder="v=0&#10;o=- 0 0 IN IP4 192.168.x.x&#10;s=AES67 Stream&#10;c=IN IP4 239.69.x.x/32&#10;t=0 0&#10;m=audio 5004 RTP/AVP 96&#10;a=rtpmap:96 L24/48000/2&#10;a=ptime:1"
-          oninput="onSdpContentInput(this)"></textarea>
-        <div id="sdp-preview" style="margin-top:6px;font-size:11px;color:var(--text3);display:none"></div>
-        <div style="margin-top:8px;font-size:12px;color:var(--text3)">💡 Le contenu sera sauvegardé automatiquement sur le serveur lors de la création du canal.</div>
+          data-action="sdp-content-input"></textarea>
+        <div id="sdp-preview" class="sdp-preview msg-hidden"></div>
+        <div class="src-hint-grey-md">💡 Le contenu sera sauvegardé automatiquement sur le serveur lors de la création du canal.</div>
       </div>`,
     alsa: `
       <div class="form-row-2">
@@ -1283,38 +1479,41 @@ window.updateSourceForm = function() {
     pulse: `<div class="form-row"><label class="form-label">Device PulseAudio</label><input class="form-input" id="src-pulse-device" placeholder="default" /></div>`,
     rtsp: `<div class="form-row"><label class="form-label">URL RTSP</label><input class="form-input" id="src-rtsp-url" placeholder="rtsp://..." /></div>`,
     file: `
-      <div style="font-size:12px;color:var(--accent2);margin-bottom:12px">🎵 Fichier audio — uploader un fichier ou spécifier un chemin dans le container</div>
+      <div class="src-hint-sm">🎵 Fichier audio — uploader un fichier ou spécifier un chemin dans le container</div>
 
       <div class="form-row">
         <label class="form-label">Fichiers audio sur le serveur</label>
-        <div style="display:flex;gap:8px;align-items:center">
-          <select class="form-input" id="src-audio-existing" style="flex:1" onchange="onAudioExistingSelect()">
+        <div class="src-row-flex">
+          <select class="form-input src-select-flex" id="src-audio-existing" data-action="audio-existing-select">
             <option value="">— sélectionner un fichier existant —</option>
           </select>
-          <button type="button" class="btn-sm" style="background:var(--surface3);color:var(--text2);white-space:nowrap" onclick="loadAudioList()">↺ Rafraîchir</button>
+          <button type="button" class="btn-sm btn-ghost-xs" data-action="load-audio-list">↺ Rafraîchir</button>
         </div>
       </div>
 
-      <div style="display:flex;align-items:center;gap:10px;margin:14px 0 10px;color:var(--text3);font-size:12px">
-        <div style="flex:1;height:1px;background:var(--border)"></div>ou uploader un fichier audio<div style="flex:1;height:1px;background:var(--border)"></div>
+      <div class="sdp-or-separator">
+        <div class="sdp-or-line"></div>ou uploader un fichier audio<div class="sdp-or-line"></div>
       </div>
 
       <div class="form-row">
         <label class="form-label">Uploader un fichier audio (mp3, wav, ogg, flac, aac…)</label>
-        <div id="audio-dropzone" style="border:2px dashed var(--border);border-radius:10px;padding:16px;text-align:center;cursor:pointer;transition:border-color 0.2s;font-size:13px;color:var(--text2)"
-             onclick="document.getElementById('src-audio-file-input').click()"
-             ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
-             ondragleave="this.style.borderColor='var(--border)'"
-             ondrop="onAudioDrop(event)">
+        <div id="audio-dropzone" class="sdp-dropzone" data-action="audio-dropzone-click">
           🎵 Cliquer ou glisser-déposer un fichier audio ici
-          <input type="file" id="src-audio-file-input" accept=".mp3,.wav,.ogg,.flac,.aac,.m4a,.opus,audio/*" style="display:none" onchange="onAudioFileSelect(this)" />
+          <input type="file" id="src-audio-file-input" class="input-hidden" accept=".mp3,.wav,.ogg,.flac,.aac,.m4a,.opus,audio/*" data-action="audio-file-select" />
         </div>
-        <div id="audio-upload-status" style="font-size:12px;margin-top:6px;display:none"></div>
+        <div id="audio-upload-status" class="sdp-upload-status msg-hidden"></div>
       </div>
 
-      <div class="form-row" style="margin-top:10px">
+      <div class="form-row">
         <label class="form-label">Chemin du fichier</label>
         <input class="form-input" id="src-file-path" placeholder="/app/uploads/audio/fichier.mp3 ou chemin custom" />
+      </div>
+      <div class="form-row">
+        <label class="form-label">Lecture en boucle</label>
+        <div class="toggle-row">
+          <input type="checkbox" id="src-file-loop" class="toggle-checkbox" />
+          <label for="src-file-loop" class="toggle-label">Rejouer automatiquement depuis le d&eacute;but &agrave; la fin du fichier</label>
+        </div>
       </div>`,
     testtone: `<div class="form-row"><label class="form-label">Fréquence (Hz)</label><input class="form-input" id="src-tone-freq" value="440" type="number" /></div>`,
   };
@@ -1357,7 +1556,7 @@ function buildSource() {
     case 'alsa': return { type, card: parseInt(document.getElementById('src-alsa-card')?.value || 0), device: parseInt(document.getElementById('src-alsa-device')?.value || 0) };
     case 'pulse': return { type, device: document.getElementById('src-pulse-device')?.value || 'default' };
     case 'rtsp': return { type, url: document.getElementById('src-rtsp-url')?.value || '' };
-    case 'file': return { type, path: document.getElementById('src-file-path')?.value || '' };
+    case 'file': return { type, path: document.getElementById('src-file-path')?.value || '', loop: document.getElementById('src-file-loop')?.checked || false };
     case 'testtone': return { type, frequency: parseInt(document.getElementById('src-tone-freq')?.value || 440) };
     default: return { type };
   }
@@ -1391,14 +1590,20 @@ async function createChannel() {
 
 // --- UTILS ---
 function apiFetch(url, opts = {}) {
+  // Security by design : envoi du token HMAC, jamais du mot de passe
   return fetch(url, {
     ...opts,
     headers: {
       'Content-Type': 'application/json',
-      'x-admin-password': adminPassword,
+      'x-admin-token': adminToken,
       ...(opts.headers || {}),
     },
   }).then(r => {
+    if (r.status === 401 && adminToken) {
+      // Token expiré ou invalide — forcer la reconnexion
+      doLogout();
+      throw new Error('Session expirée, veuillez vous reconnecter.');
+    }
     if (!r.ok) return r.json().then(d => { throw new Error(d.error || r.statusText); });
     return r;
   });
@@ -1421,6 +1626,258 @@ function escHtml(str) {
 // Overview click (logo)
 document.querySelector('.topbar-logo').addEventListener('click', showOverview);
 document.querySelector('.topbar-title').addEventListener('click', showOverview);
+
+// --- DÉLÉGATION D'ÉVÉNEMENTS GLOBALE (remplace tous les on* inline bloqués par CSP) ---
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-action]');
+  if (!el) return;
+  const action = el.dataset.action;
+  const id = el.dataset.id;
+  switch (action) {
+    case 'show-overview':      showOverview(); break;
+    case 'start-stream':       startStream(id); break;
+    case 'stop-stream':        stopStream(id); break;
+    case 'restart-stream':     restartStream(id); break;
+    case 'start-testtone':     startTestTone(id); break;
+    case 'delete-channel':     deleteChannel(id); break;
+    case 'clear-edit-sdp':     clearEditSdp(id); break;
+    case 'save-edit-sdp':      saveEditSdp(id); break;
+    case 'apply-edit-sdp':     applyEditSdp(id); break;
+    case 'save-channel-edit':  saveChannelEdit(id); break;
+    case 'set-icon': {
+      const inp = document.getElementById(el.dataset.input);
+      const pre = document.getElementById(el.dataset.preview);
+      if (inp) inp.value = el.dataset.value;
+      if (pre) pre.textContent = el.dataset.value;
+      break;
+    }
+    case 'load-sdp-list':      loadSdpList(); break;
+    case 'load-audio-list':    loadAudioList(); break;
+    case 'clear-sdp-content':  clearSdpContent(); break;
+    case 'sdp-dropzone-click':
+      if (!e.target.closest('input[type="file"]'))
+        document.getElementById('src-sdp-file-input')?.click();
+      break;
+    case 'audio-dropzone-click':
+      if (!e.target.closest('input[type="file"]'))
+        document.getElementById('src-audio-file-input')?.click();
+      break;
+  }
+});
+
+document.addEventListener('change', (e) => {
+  const el = e.target.closest('[data-action]');
+  if (!el) return;
+  switch (el.dataset.action) {
+    case 'update-channel-map':   updateChannelMapOptions(); break;
+    case 'sdp-existing-select':  onSdpExistingSelect(); break;
+    case 'audio-existing-select':onAudioExistingSelect(); break;
+    case 'sdp-file-select':      onSdpFileSelect(el); break;
+    case 'audio-file-select':    onAudioFileSelect(el); break;
+  }
+});
+
+document.addEventListener('input', (e) => {
+  const el = e.target.closest('[data-action]');
+  if (!el) return;
+  switch (el.dataset.action) {
+    case 'update-icon-preview': {
+      const pre = document.getElementById(el.dataset.preview);
+      if (pre) pre.textContent = el.value;
+      break;
+    }
+    case 'sdp-content-input':  onSdpContentInput(el); break;
+    case 'edit-sdp-input':     onEditSdpInput(el.dataset.id, el); break;
+  }
+});
+
+// Délégation pour new-icon (HTML statique)
+document.getElementById('new-icon').addEventListener('input', function() {
+  document.getElementById('new-icon-preview').textContent = this.value;
+});
+document.getElementById('new-source-type').addEventListener('change', updateSourceForm);
+
+// Délégation drag-drop dropzones (générées dynamiquement — sur document)
+document.addEventListener('dragover', (e) => {
+  if (e.target.closest('#sdp-dropzone, #audio-dropzone')) e.preventDefault();
+});
+document.addEventListener('dragenter', (e) => {
+  const dz = e.target.closest('#sdp-dropzone, #audio-dropzone');
+  if (dz) dz.classList.add('sdp-dropzone--drag');
+});
+document.addEventListener('dragleave', (e) => {
+  const dz = e.target.closest('#sdp-dropzone, #audio-dropzone');
+  if (dz && !dz.contains(e.relatedTarget)) dz.classList.remove('sdp-dropzone--drag');
+});
+document.addEventListener('drop', (e) => {
+  const dz = e.target.closest('#sdp-dropzone');
+  const adz = e.target.closest('#audio-dropzone');
+  if (dz) { e.preventDefault(); dz.classList.remove('sdp-dropzone--drag'); onSdpDrop(e); }
+  if (adz) { e.preventDefault(); adz.classList.remove('sdp-dropzone--drag'); onAudioDrop(e); }
+});
+
+// Délégation sidebar (générée dynamiquement)
+document.addEventListener('click', (e) => {
+  const ch = e.target.closest('.ch-item[data-id]');
+  if (ch) selectChannel(ch.dataset.id);
+}, true);
+
+// --- DÉCONNEXION ---
+function doLogout() {
+  adminToken = '';
+  tokenExpiry = 0;
+  if (ws) { try { ws.close(); } catch(e) {} ws = null; }
+  document.getElementById('app').classList.remove('visible');
+  document.getElementById('login-screen').classList.remove('hidden-screen');
+  document.getElementById('login-pwd').value = '';
+  document.getElementById('login-error').classList.add('msg-hidden');
+}
+
+document.getElementById('btn-logout').addEventListener('click', () => {
+  if (!confirm('Se déconnecter de la régie ?')) return;
+  log('Déconnexion effectuée', 'warn');
+  doLogout();
+});
+
+// --- CHANGEMENT DE MOT DE PASSE ---
+document.getElementById('btn-change-pwd').addEventListener('click', () => {
+  document.getElementById('pwd-current').value = '';
+  document.getElementById('pwd-new').value = '';
+  document.getElementById('pwd-confirm').value = '';
+  document.getElementById('pwd-error').classList.add('msg-hidden');
+  document.getElementById('pwd-success').classList.add('msg-hidden');
+  document.getElementById('modal-change-pwd').classList.add('open');
+  document.getElementById('pwd-current').focus();
+});
+
+document.getElementById('modal-pwd-close').addEventListener('click', closePwdModal);
+document.getElementById('modal-pwd-cancel').addEventListener('click', closePwdModal);
+// modal-pwd-save est type="submit" dans un <form onsubmit="changePassword()"> — pas besoin de listener click
+
+// pwd-confirm : Enter soumet le formulaire nativement (type="submit" dans le form)
+
+function closePwdModal() {
+  document.getElementById('modal-change-pwd').classList.remove('open');
+}
+
+async function changePassword() {
+  const current = document.getElementById('pwd-current').value;
+  const newPwd  = document.getElementById('pwd-new').value;
+  const confirm = document.getElementById('pwd-confirm').value;
+  const errEl   = document.getElementById('pwd-error');
+  const okEl    = document.getElementById('pwd-success');
+
+  errEl.classList.add('msg-hidden');
+  okEl.classList.add('msg-hidden');
+
+  if (!current || !newPwd || !confirm) {
+    errEl.textContent = 'Tous les champs sont requis.';
+    errEl.classList.remove('msg-hidden');
+    return;
+  }
+  if (newPwd.length < 8) {
+    errEl.textContent = 'Le nouveau mot de passe doit contenir au moins 8 caractères.';
+    errEl.classList.remove('msg-hidden');
+    return;
+  }
+  if (newPwd !== confirm) {
+    errEl.textContent = 'Les mots de passe ne correspondent pas.';
+    errEl.classList.remove('msg-hidden');
+    return;
+  }
+
+  try {
+    await apiFetch('/api/admin/password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword: current, newPassword: newPwd }),
+    });
+    // Ne pas stocker le nouveau mot de passe — le token reste valide jusqu'à son expiration
+    okEl.textContent = '✓ Mot de passe changé avec succès. Il sera actif jusqu\'au redémarrage du serveur (voir variables d\'environnement pour le rendre permanent).';
+    okEl.classList.remove('msg-hidden');
+    log('Mot de passe administrateur modifié', 'success');
+    document.getElementById('pwd-current').value = '';
+    document.getElementById('pwd-new').value = '';
+    document.getElementById('pwd-confirm').value = '';
+    setTimeout(closePwdModal, 3000);
+  } catch (e) {
+    errEl.textContent = (e.message.includes('Unauthorized') || e.message.includes('Session')) ? 'Mot de passe actuel incorrect.' : 'Erreur : ' + e.message;
+    errEl.classList.remove('msg-hidden');
+  }
+}
+
+// ----------------------------------------------------------------
+// Accessibility by design : focus trap dans les modaux
+// Confine Tab/Shift+Tab à l'intérieur du modal actif,
+// restaure le focus sur l'élément déclencheur à la fermeture.
+// ----------------------------------------------------------------
+const FOCUSABLE = 'button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
+let _focusTrapModal = null;
+let _focusTrapTrigger = null;
+
+function openModalWithFocusTrap(modalEl, triggerEl) {
+  _focusTrapModal = modalEl;
+  _focusTrapTrigger = triggerEl || document.activeElement;
+  modalEl.classList.add('open');
+  // Focalise le premier élément interactif
+  const first = modalEl.querySelectorAll(FOCUSABLE)[0];
+  if (first) setTimeout(() => first.focus(), 50);
+}
+
+function closeModalWithFocusTrap(modalEl) {
+  modalEl.classList.remove('open');
+  // Restaure le focus sur l'élément qui avait ouvert le modal
+  if (_focusTrapTrigger) {
+    setTimeout(() => _focusTrapTrigger.focus(), 50);
+  }
+  _focusTrapModal = null;
+  _focusTrapTrigger = null;
+}
+
+document.addEventListener('keydown', e => {
+  // Fermeture Échap
+  if (e.key === 'Escape') {
+    if (document.getElementById('modal-change-pwd').classList.contains('open')) closePwdModal();
+    else if (document.getElementById('modal-new').classList.contains('open')) closeModal();
+    return;
+  }
+
+  // Focus trap Tab
+  if (e.key === 'Tab' && _focusTrapModal && _focusTrapModal.classList.contains('open')) {
+    const focusable = Array.from(_focusTrapModal.querySelectorAll(FOCUSABLE));
+    if (focusable.length === 0) { e.preventDefault(); return; }
+    const first = focusable[0];
+    const last  = focusable[focusable.length - 1];
+    if (e.shiftKey) {
+      if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+    } else {
+      if (document.activeElement === last)  { e.preventDefault(); first.focus(); }
+    }
+  }
+});
+
+// Patch closePwdModal et closeModal pour utiliser le focus trap
+const _closePwdModal = closePwdModal;
+closePwdModal = function() {
+  closeModalWithFocusTrap(document.getElementById('modal-change-pwd'));
+};
+
+const _closeModal = closeModal;
+closeModal = function() {
+  closeModalWithFocusTrap(document.getElementById('modal-new'));
+};
+
+// Patch des ouvertures pour utiliser le focus trap
+document.getElementById('btn-change-pwd').addEventListener('click', () => {
+  // Remplace le listener déjà ajouté en initialisant le trap
+  _focusTrapModal = document.getElementById('modal-change-pwd');
+  _focusTrapTrigger = document.getElementById('btn-change-pwd');
+}, { capture: true });
+
+document.getElementById('btn-new-channel').addEventListener('click', () => {
+  _focusTrapModal = document.getElementById('modal-new');
+  _focusTrapTrigger = document.getElementById('btn-new-channel');
+}, { capture: true });
 </script>
 </body>
 </html>
