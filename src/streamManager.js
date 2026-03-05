@@ -86,6 +86,10 @@ class StreamManager extends EventEmitter {
       .output(playlistPath)
       .on('start', (cmd) => {
         console.log(`[Stream ${channelId}] Started: ${cmd}`);
+        if (sourceConfig.stream && proc.ffmpegProc && proc.ffmpegProc.stdin) {
+          sourceConfig.stream.pipe(proc.ffmpegProc.stdin, { end: false });
+          proc.ffmpegProc.stdin.on('error', () => {});
+        }
         channelManager.setActive(channelId, true);
         this.emit('stream:started', { channelId });
       })
@@ -103,11 +107,6 @@ class StreamManager extends EventEmitter {
       });
 
     proc.run();
-
-    if (sourceConfig.stream) {
-      sourceConfig.stream.pipe(proc.ffmpegProc.stdin, { end: false });
-      proc.ffmpegProc.stdin.on('error', () => {});
-    }
 
     this.activeStreams.set(channelId, {
       proc,
