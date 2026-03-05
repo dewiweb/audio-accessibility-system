@@ -478,25 +478,44 @@
       lowLatencyMode: true,
       backBufferLength: 4,
       liveSyncDuration: 2,
-      liveMaxLatencyDuration: 5,
+      liveMaxLatencyDuration: 8,
       liveDurationInfinity: true,
+      manifestLoadingMaxRetry: 10,
+      manifestLoadingRetryDelay: 1000,
+      manifestLoadingMaxRetryTimeout: 10000,
+      levelLoadingMaxRetry: 6,
+      levelLoadingRetryDelay: 1000,
+      fragLoadingMaxRetry: 6,
+      fragLoadingRetryDelay: 1000,
+      xhrSetup: (xhr) => { xhr.withCredentials = false; },
     });
     hls.loadSource(url);
     hls.attachMedia(audio);
     hls.on(Hls.Events.MANIFEST_PARSED, () => {
-      audio.play().catch(err => {
+      audio.play().catch(() => {
         showToast('Appuyez sur Écouter pour démarrer l\'audio');
       });
     });
+    let networkErrorCount = 0;
     hls.on(Hls.Events.ERROR, (event, data) => {
-      console.error('[HLS Error]', data.type, data.details, data.fatal, data.response);
-      if (data.fatal) {
-        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-          showToast('Stream indisponible. Reconnexion dans 3s…', 3000);
-          setTimeout(() => startHls(url, ch), 3000);
+      console.error('[HLS Error]', data.type, data.details, data.fatal, data.url);
+      if (!data.fatal) return;
+      if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+        networkErrorCount++;
+        if (networkErrorCount <= 3) {
+          console.log('[HLS] Network error, trying to recover...');
+          hls.startLoad();
         } else {
-          showToast('Erreur lecture : ' + data.details, 4000);
+          showToast('Stream indisponible. Reconnexion dans 3s…', 3000);
+          hls.destroy();
+          setTimeout(() => startHls(url, ch), 3000);
         }
+      } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+        console.log('[HLS] Media error, trying to recover...');
+        hls.recoverMediaError();
+      } else {
+        showToast('Erreur lecture : ' + data.details, 4000);
+        hls.destroy();
       }
     });
     hlsInstance = hls;
