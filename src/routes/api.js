@@ -2,10 +2,34 @@ const express = require('express');
 const router = express.Router();
 const path = require('path');
 const fs = require('fs');
+const multer = require('multer');
 const channelManager = require('../channelManager');
 const streamManager = require('../streamManager');
 const config = require('../config');
 const QRCode = require('qrcode');
+
+const sdpDir = path.join(__dirname, '../../sdp');
+const sdpStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    if (!fs.existsSync(sdpDir)) fs.mkdirSync(sdpDir, { recursive: true });
+    cb(null, sdpDir);
+  },
+  filename: (req, file, cb) => {
+    const safe = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+    cb(null, safe);
+  },
+});
+const uploadSdp = multer({
+  storage: sdpStorage,
+  limits: { fileSize: 64 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (file.originalname.endsWith('.sdp') || file.mimetype === 'application/sdp' || file.mimetype === 'text/plain') {
+      cb(null, true);
+    } else {
+      cb(new Error('Seuls les fichiers .sdp sont acceptés'));
+    }
+  },
+});
 
 function requireAdmin(req, res, next) {
   const auth = req.headers['x-admin-password'] || req.query.adminPassword;
@@ -131,7 +155,6 @@ router.post('/admin/channels/:id/testtone', requireAdmin, (req, res) => {
 });
 
 router.get('/admin/sdp/list', requireAdmin, (req, res) => {
-  const sdpDir = path.join(__dirname, '../../sdp');
   if (!fs.existsSync(sdpDir)) return res.json([]);
   const files = fs.readdirSync(sdpDir)
     .filter(f => f.endsWith('.sdp'))
@@ -139,8 +162,39 @@ router.get('/admin/sdp/list', requireAdmin, (req, res) => {
       filename: f,
       path: `/app/sdp/${f}`,
       size: fs.statSync(path.join(sdpDir, f)).size,
+      content: fs.readFileSync(path.join(sdpDir, f), 'utf8'),
     }));
   res.json(files);
+});
+
+router.post('/admin/sdp/upload', requireAdmin, uploadSdp.single('sdpfile'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu' });
+  res.json({
+    filename: req.file.filename,
+    path: `/app/sdp/${req.file.filename}`,
+    size: req.file.size,
+    content: fs.readFileSync(req.file.path, 'utf8'),
+  });
+}, (err, req, res, next) => {
+  res.status(400).json({ error: err.message });
+});
+
+router.post('/admin/sdp/save', requireAdmin, (req, res) => {
+  const { filename, content } = req.body;
+  if (!filename || !content) return res.status(400).json({ error: 'filename et content requis' });
+  const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/\.sdp$/i, '') + '.sdp';
+  if (!fs.existsSync(sdpDir)) fs.mkdirSync(sdpDir, { recursive: true });
+  const filePath = path.join(sdpDir, safe);
+  fs.writeFileSync(filePath, content, 'utf8');
+  res.json({ filename: safe, path: `/app/sdp/${safe}`, size: content.length });
+});
+
+router.delete('/admin/sdp/:filename', requireAdmin, (req, res) => {
+  const safe = req.params.filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const filePath = path.join(sdpDir, safe);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Fichier introuvable' });
+  fs.unlinkSync(filePath);
+  res.json({ success: true });
 });
 
 router.get('/admin/sources/list', requireAdmin, (req, res) => {

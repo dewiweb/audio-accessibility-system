@@ -859,6 +859,125 @@ document.getElementById('modal-save').addEventListener('click', createChannel);
 
 function closeModal() { document.getElementById('modal-new').classList.remove('open'); }
 
+// --- SDP MANAGER ---
+window.loadSdpList = async function() {
+  const sel = document.getElementById('src-sdp-existing');
+  if (!sel) return;
+  try {
+    const r = await apiFetch('/api/admin/sdp/list');
+    const files = await r.json();
+    sel.innerHTML = '<option value="">— sélectionner un fichier existant —</option>' +
+      files.map(f => `<option value="${f.path}" data-content="${encodeURIComponent(f.content)}">${f.filename} (${f.size}o)</option>`).join('');
+    if (files.length === 0) sel.innerHTML = '<option value="">Aucun fichier SDP sur le serveur</option>';
+  } catch (e) {
+    sel.innerHTML = '<option value="">Erreur chargement</option>';
+  }
+};
+
+window.onSdpExistingSelect = function() {
+  const sel = document.getElementById('src-sdp-existing');
+  const opt = sel.selectedOptions[0];
+  if (!opt || !opt.value) return;
+  const content = decodeURIComponent(opt.dataset.content || '');
+  document.getElementById('src-aes67sdp-content').value = content;
+  document.getElementById('src-aes67sdp-path').value = opt.value;
+  onSdpContentInput(document.getElementById('src-aes67sdp-content'));
+};
+
+window.onSdpFileSelect = async function(input) {
+  const file = input.files[0];
+  if (!file) return;
+  await uploadSdpFile(file);
+};
+
+window.onSdpDrop = async function(event) {
+  event.preventDefault();
+  document.getElementById('sdp-dropzone').style.borderColor = 'var(--border)';
+  const file = event.dataTransfer.files[0];
+  if (!file) return;
+  await uploadSdpFile(file);
+};
+
+async function uploadSdpFile(file) {
+  const status = document.getElementById('sdp-upload-status');
+  status.style.display = 'block';
+  status.style.color = 'var(--text2)';
+  status.textContent = `⏳ Upload de ${file.name}…`;
+  const formData = new FormData();
+  formData.append('sdpfile', file);
+  try {
+    const r = await fetch('/api/admin/sdp/upload', {
+      method: 'POST',
+      headers: { 'x-admin-password': adminPassword },
+      body: formData,
+    });
+    if (!r.ok) { const d = await r.json(); throw new Error(d.error); }
+    const data = await r.json();
+    status.style.color = 'var(--green)';
+    status.textContent = `✓ ${data.filename} uploadé (${data.size} octets)`;
+    document.getElementById('src-aes67sdp-content').value = data.content;
+    document.getElementById('src-aes67sdp-path').value = data.path;
+    onSdpContentInput(document.getElementById('src-aes67sdp-content'));
+    loadSdpList();
+  } catch (e) {
+    status.style.color = 'var(--red)';
+    status.textContent = `✗ Erreur : ${e.message}`;
+  }
+}
+
+window.onSdpContentInput = function(textarea) {
+  const content = textarea.value.trim();
+  const saveBtn = document.getElementById('sdp-save-btn');
+  const preview = document.getElementById('sdp-preview');
+  if (saveBtn) saveBtn.disabled = !content;
+  if (!preview) return;
+  if (!content) { preview.style.display = 'none'; return; }
+  const lines = content.split('\n');
+  const session = lines.find(l => l.startsWith('s='))?.slice(2) || '—';
+  const conn = lines.find(l => l.startsWith('c='))?.match(/(\d+\.\d+\.\d+\.\d+)/)?.[1] || '—';
+  const media = lines.find(l => l.startsWith('m=audio'));
+  const port = media?.split(' ')[1] || '—';
+  const rtpmap = lines.find(l => l.startsWith('a=rtpmap:'))?.replace('a=rtpmap:', '') || '—';
+  preview.style.display = 'block';
+  preview.innerHTML = `📋 <b>Session:</b> ${session} &nbsp;|&nbsp; <b>Multicast:</b> ${conn}:${port} &nbsp;|&nbsp; <b>Format:</b> ${rtpmap}`;
+};
+
+window.saveSdpContent = async function() {
+  const content = document.getElementById('src-aes67sdp-content').value.trim();
+  if (!content) return;
+  const lines = content.split('\n');
+  const session = lines.find(l => l.startsWith('s='))?.slice(2).trim() || 'stream';
+  const suggested = session.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').slice(0, 40);
+  const filename = prompt('Nom du fichier (sans extension) :', suggested);
+  if (!filename) return;
+  try {
+    const r = await apiFetch('/api/admin/sdp/save', {
+      method: 'POST',
+      body: JSON.stringify({ filename, content }),
+    });
+    const data = await r.json();
+    document.getElementById('src-aes67sdp-path').value = data.path;
+    const status = document.getElementById('sdp-upload-status');
+    status.style.display = 'block';
+    status.style.color = 'var(--green)';
+    status.textContent = `✓ Sauvegardé : ${data.filename}`;
+    loadSdpList();
+  } catch (e) {
+    log('Erreur sauvegarde SDP : ' + e.message, 'error');
+  }
+};
+
+window.clearSdpContent = function() {
+  const ta = document.getElementById('src-aes67sdp-content');
+  if (ta) { ta.value = ''; onSdpContentInput(ta); }
+  const path = document.getElementById('src-aes67sdp-path');
+  if (path) path.value = '';
+  const sel = document.getElementById('src-sdp-existing');
+  if (sel) sel.value = '';
+  const status = document.getElementById('sdp-upload-status');
+  if (status) status.style.display = 'none';
+};
+
 window.updateSourceForm = function() {
   const type = document.getElementById('new-source-type').value;
   const configs = {
@@ -870,9 +989,54 @@ window.updateSourceForm = function() {
       </div>
       <div class="form-row"><label class="form-label">Interface réseau (optionnel, ex: eth0)</label><input class="form-input" id="src-aes67-iface" placeholder="laisser vide = auto" /></div>`,
     aes67sdp: `
-      <div style="font-size:12px;color:var(--accent2);margin-bottom:10px">📄 AES67 via SDP — coller le contenu SDP exporté depuis la console</div>
-      <div class="form-row"><label class="form-label">Chemin du fichier .sdp dans le container</label><input class="form-input" id="src-aes67sdp-path" placeholder="/sdp/flux-audiodesc.sdp" /></div>
-      <div class="form-row"><label class="form-label">ou coller le contenu SDP ici</label><textarea class="form-input" id="src-aes67sdp-content" rows="5" placeholder="v=0&#10;o=- ...&#10;s=AES67 Stream&#10;..."></textarea></div>`,
+      <div style="font-size:12px;color:var(--accent2);margin-bottom:12px">📄 AES67 via SDP — uploader ou coller le contenu SDP exporté depuis la console</div>
+
+      <div class="form-row">
+        <label class="form-label">Fichiers SDP existants sur le serveur</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select class="form-input" id="src-sdp-existing" style="flex:1" onchange="onSdpExistingSelect()">
+            <option value="">— chargement... —</option>
+          </select>
+          <button type="button" class="btn-sm" style="background:var(--surface3);color:var(--text2);white-space:nowrap" onclick="loadSdpList()">↺ Rafraîchir</button>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;margin:10px 0;color:var(--text3);font-size:12px">
+        <div style="flex:1;height:1px;background:var(--border)"></div>ou uploader un fichier<div style="flex:1;height:1px;background:var(--border)"></div>
+      </div>
+
+      <div class="form-row">
+        <label class="form-label">Uploader un fichier .sdp</label>
+        <div id="sdp-dropzone" style="border:2px dashed var(--border);border-radius:10px;padding:16px;text-align:center;cursor:pointer;transition:border-color 0.2s;font-size:13px;color:var(--text2)"
+             onclick="document.getElementById('src-sdp-file-input').click()"
+             ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
+             ondragleave="this.style.borderColor='var(--border)'"
+             ondrop="onSdpDrop(event)">
+          📂 Cliquer ou glisser-déposer un fichier .sdp ici
+          <input type="file" id="src-sdp-file-input" accept=".sdp,text/plain" style="display:none" onchange="onSdpFileSelect(this)" />
+        </div>
+        <div id="sdp-upload-status" style="font-size:12px;margin-top:6px;display:none"></div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;margin:10px 0;color:var(--text3);font-size:12px">
+        <div style="flex:1;height:1px;background:var(--border)"></div>ou coller directement<div style="flex:1;height:1px;background:var(--border)"></div>
+      </div>
+
+      <div class="form-row">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <label class="form-label" style="margin:0">Contenu SDP</label>
+          <div style="display:flex;gap:6px">
+            <button type="button" class="btn-sm" style="background:var(--surface3);color:var(--text2);font-size:11px" onclick="clearSdpContent()">Effacer</button>
+            <button type="button" class="btn-sm btn-green" style="font-size:11px" id="sdp-save-btn" onclick="saveSdpContent()" disabled>💾 Sauvegarder sur serveur</button>
+          </div>
+        </div>
+        <textarea class="form-input" id="src-aes67sdp-content" rows="6"
+          placeholder="v=0&#10;o=- 0 0 IN IP4 192.168.x.x&#10;s=AES67 Stream&#10;c=IN IP4 239.69.x.x/32&#10;t=0 0&#10;m=audio 5004 RTP/AVP 96&#10;a=rtpmap:96 L24/48000/2&#10;a=ptime:1"
+          oninput="onSdpContentInput(this)"></textarea>
+        <div id="sdp-preview" style="margin-top:6px;font-size:11px;color:var(--text3);display:none"></div>
+      </div>
+
+      <input type="hidden" id="src-aes67sdp-path" />`,
     alsa: `
       <div class="form-row-2">
         <div class="form-row"><label class="form-label">Carte (card)</label><input class="form-input" id="src-alsa-card" value="0" /></div>
@@ -884,6 +1048,7 @@ window.updateSourceForm = function() {
     testtone: `<div class="form-row"><label class="form-label">Fréquence (Hz)</label><input class="form-input" id="src-tone-freq" value="440" type="number" /></div>`,
   };
   document.getElementById('source-config').innerHTML = configs[type] || '';
+  if (type === 'aes67sdp') loadSdpList();
 };
 
 function buildSource() {
