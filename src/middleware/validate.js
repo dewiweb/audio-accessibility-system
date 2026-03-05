@@ -101,7 +101,7 @@ function validateChannel(req, res, next) {
     if (s.sdpFile && !isSafePath(s.sdpFile, ['/app/sdp/'])) {
       return res.status(400).json({ error: 'Chemin fichier SDP invalide.' });
     }
-    if (s.path && !isSafePath(s.path, ['/app/uploads/'])) {
+    if (s.path && !isSafePath(s.path, ['/app/uploads/', '/app/public/audio/help/'])) {
       return res.status(400).json({ error: 'Chemin fichier audio invalide.' });
     }
 

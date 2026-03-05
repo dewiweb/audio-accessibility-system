@@ -253,14 +253,30 @@ router.delete('/admin/sdp/:filename', requireAdmin, validateFilename, (req, res)
 });
 
 router.get('/admin/audio/list', requireAdmin, (req, res) => {
-  if (!fs.existsSync(audioDir)) return res.json([]);
-  const files = fs.readdirSync(audioDir)
-    .filter(f => /\.(mp3|wav|ogg|flac|aac|m4a|opus)$/i.test(f))
-    .map(f => ({
-      filename: f,
-      path: `/app/uploads/audio/${f}`,
-      size: fs.statSync(path.join(audioDir, f)).size,
-    }));
+  const audioExt = /\.(mp3|wav|ogg|flac|aac|m4a|opus)$/i;
+  const files = [];
+
+  if (fs.existsSync(audioDir)) {
+    fs.readdirSync(audioDir)
+      .filter(f => audioExt.test(f))
+      .forEach(f => files.push({
+        filename: f,
+        path: `/app/uploads/audio/${f}`,
+        size: fs.statSync(path.join(audioDir, f)).size,
+      }));
+  }
+
+  const helpDir = path.join(__dirname, '../../public/audio/help');
+  if (fs.existsSync(helpDir)) {
+    fs.readdirSync(helpDir)
+      .filter(f => audioExt.test(f))
+      .forEach(f => files.push({
+        filename: `[aide] ${f}`,
+        path: `/app/public/audio/help/${f}`,
+        size: fs.statSync(path.join(helpDir, f)).size,
+      }));
+  }
+
   res.json(files);
 });
 
