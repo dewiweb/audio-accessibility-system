@@ -1065,6 +1065,9 @@ function renderChannelDetail(ch) {
       </div>
     </div>
   `;
+  if (ch.source?.type === 'aes67') {
+    updateEditChannelMapOptions();
+  }
 }
 
 // --- ACTIONS ---
