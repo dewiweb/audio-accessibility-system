@@ -1249,6 +1249,10 @@ window.onSdpExistingSelect = function() {
     status.className = 'sdp-upload-status status-accent';
     status.textContent = `✓ Fichier sélectionné : ${opt.dataset.filename || opt.value}`;
   }
+  if (opt.dataset.content) {
+    const content = decodeURIComponent(opt.dataset.content);
+    applySdpChannels(content, 'src-aes67sdp-channels', 'channel-map-row-sdp', 'src-aes67sdp-channelmap');
+  }
 };
 
 window.onSdpFileSelect = async function(input) {
@@ -1283,6 +1287,9 @@ async function uploadSdpFile(file) {
     status.textContent = `✓ ${data.filename} uploadé (${data.size} octets)`;
     const pathEl = document.getElementById('src-aes67sdp-path');
     if (pathEl) pathEl.value = data.path;
+    const reader = new FileReader();
+    reader.onload = (e) => applySdpChannels(e.target.result, 'src-aes67sdp-channels', 'channel-map-row-sdp', 'src-aes67sdp-channelmap');
+    reader.readAsText(file);
     loadSdpList();
   } catch (e) {
     status.className = 'sdp-upload-status status-err';
@@ -1360,6 +1367,28 @@ async function uploadAudioFile(file) {
   }
 }
 
+function parseSdpChannels(content) {
+  const lines = content.split('\n');
+  const rtpmap = lines.find(l => l.startsWith('a=rtpmap:')) || '';
+  const match = rtpmap.match(/\/(\d+)\s*$/);
+  if (match) {
+    const n = parseInt(match[1]);
+    if ([1, 2, 4, 6, 8, 16].includes(n)) return n;
+  }
+  return null;
+}
+
+function applySdpChannels(content, chSelId, rowId, mapSelId) {
+  const n = parseSdpChannels(content);
+  if (!n) return;
+  const sel = document.getElementById(chSelId);
+  if (sel) {
+    const opt = sel.querySelector(`option[value="${n}"]`);
+    if (opt) sel.value = String(n);
+  }
+  updateChannelMapOptionsFor(chSelId, rowId, mapSelId);
+}
+
 window.onSdpContentInput = function(textarea) {
   const content = textarea.value.trim();
   const saveBtn = document.getElementById('sdp-save-btn');
@@ -1375,6 +1404,7 @@ window.onSdpContentInput = function(textarea) {
   const rtpmap = lines.find(l => l.startsWith('a=rtpmap:'))?.replace('a=rtpmap:', '') || '—';
   preview.classList.remove('msg-hidden');
   preview.innerHTML = `📋 <b>Session:</b> ${session} &nbsp;|&nbsp; <b>Multicast:</b> ${conn}:${port} &nbsp;|&nbsp; <b>Format:</b> ${rtpmap}`;
+  applySdpChannels(content, 'src-aes67paste-channels', 'channel-map-row-paste', 'src-aes67paste-channelmap');
 };
 
 window.saveSdpContent = async function() {
