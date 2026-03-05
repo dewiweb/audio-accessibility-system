@@ -11,12 +11,13 @@ function generateSineStream(frequency = 440, sampleRate = 48000) {
   const stream = new PassThrough();
   const channels = 2;
   const bytesPerSample = 2;
-  const chunkMs = 100;
+  const chunkMs = 20;
   const samplesPerChunk = Math.floor(sampleRate * chunkMs / 1000);
   const bufSize = samplesPerChunk * channels * bytesPerSample;
   let phase = 0;
   const phaseInc = (2 * Math.PI * frequency) / sampleRate;
-  let running = true;
+  let running = false;
+  let timer = null;
 
   const write = () => {
     if (!running) return;
@@ -26,15 +27,26 @@ function generateSineStream(frequency = 440, sampleRate = 48000) {
       buf.writeInt16LE(sample, i * channels * bytesPerSample);
       buf.writeInt16LE(sample, i * channels * bytesPerSample + bytesPerSample);
       phase += phaseInc;
+      if (phase > 2 * Math.PI) phase -= 2 * Math.PI;
     }
-    if (phase > 2 * Math.PI) phase -= 2 * Math.PI;
-    const ok = stream.push(buf);
-    if (ok) setTimeout(write, chunkMs);
-    else stream.once('drain', write);
+    stream.push(buf);
+    timer = setTimeout(write, chunkMs);
   };
 
-  stream.on('close', () => { running = false; });
-  setTimeout(write, 0);
+  stream.on('pipe', () => {
+    if (!running) {
+      running = true;
+      write();
+    }
+  });
+  stream.on('close', () => {
+    running = false;
+    if (timer) clearTimeout(timer);
+  });
+  stream.on('unpipe', () => {
+    running = false;
+    if (timer) clearTimeout(timer);
+  });
   return stream;
 }
 
