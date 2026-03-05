@@ -452,14 +452,17 @@
       if (!resp.ok) throw new Error(`Erreur serveur (${resp.status})`);
       const ch = await resp.json();
 
+      console.log('[PWA] hlsUrl:', ch.hlsUrl, 'Hls defined:', typeof Hls !== 'undefined', 'supported:', typeof Hls !== 'undefined' && Hls.isSupported());
       if (typeof Hls !== 'undefined' && Hls.isSupported()) {
         startHls(ch.hlsUrl, ch);
+        updatePlayerUI(ch);
       } else if (audio.canPlayType('application/vnd.apple.mpegurl')) {
         audio.src = ch.hlsUrl;
-        audio.play().catch(err => showToast('Appuyez à nouveau pour démarrer l\'audio'));
+        audio.play().catch(() => showToast('Appuyez à nouveau pour démarrer l\'audio'));
         updatePlayerUI(ch);
       } else {
-        showToast('Votre navigateur ne supporte pas le streaming audio HLS.');
+        showToast('Navigateur incompatible HLS. Essayez Chrome ou Firefox.', 5000);
+        if (btn) { btn.textContent = '▶ Écouter'; btn.disabled = false; }
         return;
       }
 
