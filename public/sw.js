@@ -1,7 +1,5 @@
-const CACHE_NAME = 'audio-access-v5';
+const CACHE_NAME = 'audio-access-v6';
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
   '/manifest.json',
   '/hls.min.js',
 ];
@@ -32,13 +30,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network first for HTML, cache fallback
+  // Always fetch HTML from network — never serve stale index.html from cache
   if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request).catch(() =>
-        caches.match('/index.html')
-      )
-    );
+    event.respondWith(fetch(event.request));
     return;
   }
 
