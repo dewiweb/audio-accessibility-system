@@ -491,13 +491,15 @@
       levelLoadingRetryDelay: 1000,
       fragLoadingMaxRetry: 6,
       fragLoadingRetryDelay: 1000,
-      xhrSetup: (xhr) => { xhr.withCredentials = false; },
     });
-    hls.loadSource(url);
     hls.attachMedia(audio);
+    hls.on(Hls.Events.MEDIA_ATTACHED, () => {
+      hls.loadSource(url);
+    });
     hls.on(Hls.Events.MANIFEST_PARSED, () => {
-      audio.play().catch(() => {
-        showToast('Appuyez sur Écouter pour démarrer l\'audio');
+      audio.play().catch((err) => {
+        console.warn('[PWA] autoplay blocked:', err.message);
+        showToast('Touchez l\'écran pour activer le son', 3000);
       });
     });
     let networkErrorCount = 0;
