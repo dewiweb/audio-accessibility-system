@@ -180,21 +180,22 @@ class StreamManager extends EventEmitter {
       .on('end', () => {
         if (isFileSource && isLoopFile) {
           // Mode VOD loop : FFmpeg a terminé l'encodage du fichier entier.
-          // On supprime les anciens segments, puis on relance depuis le début.
-          const stream = this.activeStreams.get(channelId);
-          if (!stream) return;
+          // On supprime les anciens segments TS, puis on relance depuis le début.
+          // Important : on NE PAS appeler stopStream (évite d'émettre stream:stopped).
+          if (!this.activeStreams.has(channelId)) return;
           console.log(`[Stream ${channelId}] Loop: restarting...`);
           try {
             fs.readdirSync(outputDir)
               .filter(f => f.endsWith('.ts'))
               .forEach(f => { try { fs.unlinkSync(path.join(outputDir, f)); } catch {} });
           } catch {}
-          // Délai court pour laisser les clients finir la lecture de l'itération courante
+          // Supprimer l'ancienne entrée sans émettre stream:stopped
+          this.activeStreams.delete(channelId);
+          // Délai pour laisser les clients finir la lecture de l'itération courante
           setTimeout(() => {
-            if (!this.activeStreams.has(channelId)) return;
-            this.stopStream(channelId);
+            if (this.activeStreams.has(channelId)) return; // déjà relancé ou arrêté manuellement
             this.startStream(channelId, source);
-          }, 500);
+          }, 1500);
         } else if (isFileSource && !isLoopFile) {
           // Mode VOD non-loop : playlist complète avec EXT-X-ENDLIST.
           console.log(`[Stream ${channelId}] Encoding complete (VOD ready)`);
