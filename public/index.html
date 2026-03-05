@@ -388,6 +388,7 @@
   }
 
   function renderChannels() {
+    console.log('[PWA] renderChannels:', channels.length, 'canaux', channels.map(c => c.id + ':' + c.name));
     if (channels.length === 0) {
       channelsList.innerHTML = `
         <div class="empty-state">
@@ -436,10 +437,13 @@
   }
 
   async function playChannel(channelId) {
+    console.log('[PWA] playChannel:', channelId);
     const btn = document.querySelector(`.play-btn[data-id="${channelId}"]`);
     if (btn) { btn.textContent = '⏳ Connexion…'; btn.disabled = true; }
     try {
+      console.log('[PWA] fetch /api/channels/' + channelId);
       const resp = await fetch(`/api/channels/${channelId}`);
+      console.log('[PWA] response status:', resp.status);
       if (resp.status === 404) {
         showToast('Ce canal n\'est pas actif. Veuillez patienter.', 3500);
         renderChannels();
