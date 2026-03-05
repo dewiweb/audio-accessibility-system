@@ -92,11 +92,43 @@ class StreamManager extends EventEmitter {
       '-movflags +faststart',
     ];
 
-    // Sélection de paire stéréo dans un flux multicanal (ex: canaux 3+4 d'un flux 8ch)
+    // Construction de la chaîne de filtres audio
+    const audioFilters = [];
+
+    // 1. Sélection de paire stéréo dans un flux multicanal (ex: canaux 3+4 d'un flux 8ch)
     // source.channelMap = [3, 4]  — index 1-basés, comme sur la console
     if (source.channelMap && source.channelMap.length === 2) {
-      const [l, r] = source.channelMap.map(n => n - 1); // convertir en 0-basé
-      outputOptions.push(`-af pan=stereo|c0=c${l}|c1=c${r}`);
+      const [l, r] = source.channelMap.map(n => n - 1);
+      audioFilters.push(`pan=stereo|c0=c${l}|c1=c${r}`);
+    }
+
+    // 2. Downmix multicanal → stéréo (5.1, 7.1, etc.)
+    // source.downmix = 'stereo'       — downmix ITU-R BS.775 natif FFmpeg
+    // source.downmix = 'stereo-loud'  — mix renforcé (LFE + surround) pour malentendants
+    // source.downmix = 'binaural'     — HRTF binaurale pour casque (3D immersif)
+    if (source.downmix && !source.channelMap) {
+      switch (source.downmix) {
+        case 'stereo':
+          // Downmix standard ITU-R BS.775 — laisse FFmpeg calculer les coefficients
+          audioFilters.push('aformat=channel_layouts=stereo');
+          break;
+        case 'stereo-loud':
+          // Mix renforcé pour malentendants : L+C*0.7+Ls*0.5+LFE*0.7 / R+C*0.7+Rs*0.5+LFE*0.7
+          audioFilters.push(
+            'pan=stereo|' +
+            'c0=0.65*c0+0.45*c2+0.45*c4+0.55*c6|' +
+            'c1=0.65*c1+0.45*c2+0.45*c5+0.55*c6'
+          );
+          break;
+        case 'binaural':
+          // Rendu binaural HRTF via filtre headphone (intégré FFmpeg, pas besoin de SOFA)
+          audioFilters.push('headphone=hrir=compensated:type=time');
+          break;
+      }
+    }
+
+    if (audioFilters.length > 0) {
+      outputOptions.push(`-af ${audioFilters.join(',')}`);
     }
 
     const proc = ffmpeg(sourceConfig.input)

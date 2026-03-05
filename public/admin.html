@@ -1200,6 +1200,16 @@ window.updateSourceForm = function() {
         </select>
         <div style="font-size:11px;color:var(--text3);margin-top:4px">Sélectionnez quelle paire de canaux mono du flux sera envoyée en stéréo L/R</div>
       </div>
+      <div class="form-row" id="downmix-row">
+        <label class="form-label">Downmix vers stéréo</label>
+        <select class="form-input" id="src-aes67-downmix">
+          <option value="">— pas de downmix (flux déjà stéréo) —</option>
+          <option value="stereo">Stéréo standard (ITU-R BS.775)</option>
+          <option value="stereo-loud">Stéréo renforcée — pour malentendants (LFE + surround boostés)</option>
+          <option value="binaural">Binaural HRTF — rendu 3D casque</option>
+        </select>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">Pour flux 5.1 / 7.1 — ignoré si une paire spécifique est sélectionnée ci-dessus</div>
+      </div>
       <div class="form-row-2">
         <div class="form-row"><label class="form-label">Sample rate (Hz)</label>
           <select class="form-input" id="src-aes67-samplerate">
@@ -1322,6 +1332,8 @@ function buildSource() {
         interface: document.getElementById('src-aes67-iface')?.value || '',
       };
       if (chMapVal) src.channelMap = chMapVal.split(',').map(Number);
+      const downmixVal = document.getElementById('src-aes67-downmix')?.value || '';
+      if (downmixVal && !chMapVal) src.downmix = downmixVal;
       return src;
     }
     case 'aes67sdp-upload': {
