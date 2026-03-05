@@ -1027,6 +1027,49 @@ function renderChannelDetail(ch) {
             <label for="edit-file-loop" class="toggle-label">Rejouer automatiquement depuis le début à la fin du fichier</label>
           </div>
         </div>` : ''}
+        ${ch.source?.type === 'aes67' ? `
+        <div class="form-row">
+          <label class="form-label" for="edit-aes67-channels">Canaux dans le flux AES67</label>
+          <select class="form-input" id="edit-aes67-channels" data-action="update-edit-channel-map">
+            <option value="1" ${(ch.source?.channels||2)===1?'selected':''}>1 — Mono</option>
+            <option value="2" ${(ch.source?.channels||2)===2?'selected':''}>2 — Stéréo</option>
+            <option value="4" ${(ch.source?.channels||2)===4?'selected':''}>4 — Quad</option>
+            <option value="8" ${(ch.source?.channels||2)===8?'selected':''}>8 — Octo</option>
+            <option value="16" ${(ch.source?.channels||2)===16?'selected':''}>16 — 16ch</option>
+          </select>
+        </div>
+        <div class="form-row" id="edit-channel-map-row" ${(ch.source?.channels||2)<=2?'style="display:none"':''}>
+          <label class="form-label" for="edit-aes67-channelmap">Paire stéréo à extraire</label>
+          <select class="form-input" id="edit-aes67-channelmap">
+            <option value="">— tous les canaux (mix) —</option>
+            ${(function(){
+              const n = ch.source?.channels || 2;
+              const cur = ch.source?.channelMap ? ch.source.channelMap.join(',') : '';
+              let opts = '';
+              for (let i = 1; i < n; i += 2) {
+                const v = i+','+(i+1);
+                opts += '<option value="'+v+'"'+(cur===v?' selected':'')+'>Canaux '+i+' / '+(i+1)+'</option>';
+              }
+              return opts;
+            })()} 
+          </select>
+          <div class="src-hint-grey">Quelle paire mono du flux sera envoyée en stéréo L/R</div>
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="edit-aes67-downmix">Downmix vers stéréo</label>
+          <select class="form-input" id="edit-aes67-downmix">
+            <option value="" ${!ch.source?.downmix?'selected':''}>— pas de traitement (flux déjà stéréo) —</option>
+            <option value="mono-to-stereo" ${ch.source?.downmix==='mono-to-stereo'?'selected':''}>Mono → Stéréo — audiodescription (voix dupliquée L+R)</option>
+            <option value="stereo" ${ch.source?.downmix==='stereo'?'selected':''}>Stéréo standard (ITU-R BS.775) — downmix 5.1/7.1</option>
+            <option value="stereo-loud" ${ch.source?.downmix==='stereo-loud'?'selected':''}>Stéréo renforcée — malentendants (LFE + surround boostés)</option>
+            <option value="binaural" ${ch.source?.downmix==='binaural'?'selected':''}>Binaural HRTF — rendu 3D casque</option>
+          </select>
+          <div class="src-hint-grey">Audiodescription : choisir <b>Mono → Stéréo</b> · 5.1/7.1 : choisir <b>Stéréo renforcée</b> ou standard</div>
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="edit-aes67-gain">Gain (dB) <span class="label-opt">— 0 = pas de changement</span></label>
+          <input class="form-input gain-input" id="edit-aes67-gain" type="number" value="${ch.source?.gain || 0}" step="1" min="-20" max="20" />
+        </div>` : ''}
         <button class="btn-sm btn-add" data-action="save-channel-edit" data-id="${ch.id}">💾 Enregistrer</button>
       </div>
     </div>
@@ -1148,6 +1191,22 @@ async function saveChannelEdit(id) {
   const loopEl = document.getElementById('edit-file-loop');
   if (loopEl && ch?.source?.type === 'file') {
     updates.source = { ...ch.source, loop: loopEl.checked };
+  }
+  if (ch?.source?.type === 'aes67') {
+    const chMapEl = document.getElementById('edit-aes67-channelmap');
+    const downmixEl = document.getElementById('edit-aes67-downmix');
+    const gainEl = document.getElementById('edit-aes67-gain');
+    const chCount = parseInt(document.getElementById('edit-aes67-channels')?.value || 2);
+    const src = { ...ch.source, channels: chCount };
+    if (chMapEl?.value) src.channelMap = chMapEl.value.split(',').map(Number);
+    else delete src.channelMap;
+    const dmVal = downmixEl?.value || '';
+    if (dmVal) src.downmix = dmVal;
+    else delete src.downmix;
+    const gainVal = parseInt(gainEl?.value || 0);
+    src.gain = gainVal !== 0 ? gainVal : undefined;
+    if (src.gain === undefined) delete src.gain;
+    updates.source = src;
   }
   try {
     await apiFetch(`/api/admin/channels/${id}`, { method: 'PUT', body: JSON.stringify(updates) });
@@ -1351,6 +1410,19 @@ window.clearSdpContent = function() {
   if (sel) sel.value = '';
   const status = document.getElementById('sdp-upload-status');
   if (status) status.className = 'sdp-upload-status msg-hidden';
+};
+
+window.updateEditChannelMapOptions = function() {
+  const n = parseInt(document.getElementById('edit-aes67-channels')?.value || 2);
+  const row = document.getElementById('edit-channel-map-row');
+  const sel = document.getElementById('edit-aes67-channelmap');
+  if (!row || !sel) return;
+  if (n <= 2) { row.style.setProperty('display', 'none'); sel.value = ''; return; }
+  row.style.removeProperty('display');
+  const pairs = [];
+  for (let i = 1; i < n; i += 2) pairs.push([i, i + 1]);
+  sel.innerHTML = '<option value="">— tous les canaux (mix) —</option>' +
+    pairs.map(([l, r]) => `<option value="${l},${r}">Canaux ${l} / ${r}</option>`).join('');
 };
 
 window.updateChannelMapOptions = function() {
@@ -1669,7 +1741,8 @@ document.addEventListener('change', (e) => {
   const el = e.target.closest('[data-action]');
   if (!el) return;
   switch (el.dataset.action) {
-    case 'update-channel-map':   updateChannelMapOptions(); break;
+    case 'update-channel-map':      updateChannelMapOptions(); break;
+    case 'update-edit-channel-map': updateEditChannelMapOptions(); break;
     case 'sdp-existing-select':  onSdpExistingSelect(); break;
     case 'audio-existing-select':onAudioExistingSelect(); break;
     case 'sdp-file-select':      onSdpFileSelect(el); break;

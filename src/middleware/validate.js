@@ -140,6 +140,26 @@ function validateChannel(req, res, next) {
     if (s.loop !== undefined) {
       s.loop = Boolean(s.loop);
     }
+
+    // Sélection de paire de canaux AES67 : tableau de 2 entiers 1-basés [1..16]
+    if (s.channelMap !== undefined) {
+      if (!Array.isArray(s.channelMap) || s.channelMap.length !== 2) {
+        return res.status(400).json({ error: 'channelMap doit être un tableau de 2 entiers (ex: [1, 2]).' });
+      }
+      const [l, r] = s.channelMap.map(n => parseInt(n));
+      if (isNaN(l) || isNaN(r) || l < 1 || l > 16 || r < 1 || r > 16) {
+        return res.status(400).json({ error: 'channelMap : valeurs attendues entre 1 et 16.' });
+      }
+      s.channelMap = [l, r];
+    }
+
+    // Downmix : valeurs autorisées
+    if (s.downmix !== undefined) {
+      const allowed = ['stereo', 'stereo-loud', 'binaural', 'mono-to-stereo'];
+      if (s.downmix && !allowed.includes(s.downmix)) {
+        return res.status(400).json({ error: `downmix invalide. Valeurs acceptées : ${allowed.join(', ')}.` });
+      }
+    }
   }
 
   next();
