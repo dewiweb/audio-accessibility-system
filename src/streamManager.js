@@ -89,7 +89,11 @@ class StreamManager extends EventEmitter {
     //   FFmpeg écrit les segments en temps réel → les segments récents sont toujours présents,
     //   pas de 404. Identique aux sources live.
     // Sources live (AES67, ALSA…) : fenêtre glissante, delete_segments.
-    if (isLoopFile) sourceConfig.inputOptions = ['-stream_loop -1', ...(sourceConfig.inputOptions || [])];
+    // -re : limite le débit d'entrée à la vitesse de lecture réelle (1x).
+    // Sans -re, FFmpeg encode aussi vite que possible → des milliers de segments
+    // en quelques secondes, delete_segments supprime les anciens avant que HLS.js
+    // puisse les lire → 404 en cascade.
+    if (isLoopFile) sourceConfig.inputOptions = ['-stream_loop -1', '-re', ...(sourceConfig.inputOptions || [])];
 
     const outputOptions = isFileSource && !isLoopFile ? [
       '-f hls',
