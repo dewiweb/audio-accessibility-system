@@ -703,7 +703,13 @@ function renderChannelDetail(ch) {
     rtsp: `RTSP: ${ch.source?.url || ''}`,
     file: `Fichier: ${ch.source?.path || ''}`,
     testtone: `Tonalité ${ch.source?.frequency || 440}Hz`,
+    aes67: ch.source?.sdpFile
+      ? `SDP: ${ch.source.sdpFile}`
+      : `RTP multicast: ${ch.source?.multicastAddress || '?'}:${ch.source?.port || 5004} (${ch.source?.encoding || 'L24'}/${ch.source?.sampleRate || 48000}/${ch.source?.channels || 2})`,
   }[ch.source?.type] || 'Inconnue';
+
+  const currentSdpContent = ch.source?.sdpContent || '';
+  const isAes67 = ch.source?.type === 'aes67';
 
   el.innerHTML = `
     <div class="detail-card">
@@ -744,6 +750,22 @@ function renderChannelDetail(ch) {
         <div style="background:var(--surface2);border-radius:8px;padding:12px;font-family:monospace;font-size:12px;color:var(--accent2)">
           ${escHtml(sourceLabel)}
         </div>
+        ${isAes67 ? `
+        <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <span style="font-size:12px;font-weight:600;color:var(--text2)">📄 Contenu SDP</span>
+            <div style="display:flex;gap:6px">
+              <button class="btn-sm" style="background:var(--surface3);color:var(--text2);font-size:11px" onclick="clearEditSdp('${ch.id}')">Effacer</button>
+              <button class="btn-sm btn-green" style="font-size:11px" onclick="saveEditSdp('${ch.id}')">💾 Sauvegarder</button>
+              <button class="btn-sm btn-add" style="font-size:11px" onclick="applyEditSdp('${ch.id}')">✓ Appliquer au canal</button>
+            </div>
+          </div>
+          <textarea class="form-input" id="edit-sdp-${ch.id}" rows="8"
+            style="font-family:monospace;font-size:12px"
+            placeholder="Coller ici le contenu SDP exporté depuis la console (v=0...)" 
+            oninput="onEditSdpInput('${ch.id}', this)">${escHtml(currentSdpContent)}</textarea>
+          <div id="edit-sdp-preview-${ch.id}" style="margin-top:6px;font-size:11px;color:var(--text3)"></div>
+        </div>` : ''}
         <div style="margin-top:14px">
           <div style="font-size:12px;color:var(--text2);margin-bottom:8px">URL HLS :</div>
           <div style="background:var(--surface2);border-radius:8px;padding:12px;font-family:monospace;font-size:12px;color:var(--text2);word-break:break-all">
@@ -833,6 +855,63 @@ async function deleteChannel(id) {
     loadChannels();
   } catch (e) { log('Erreur: ' + e.message, 'error'); }
 }
+
+// --- SDP EDITOR (fiche canal existant) ---
+window.onEditSdpInput = function(id, textarea) {
+  const content = textarea.value.trim();
+  const preview = document.getElementById(`edit-sdp-preview-${id}`);
+  if (!preview) return;
+  if (!content) { preview.textContent = ''; return; }
+  const lines = content.split('\n');
+  const session = lines.find(l => l.startsWith('s='))?.slice(2) || '—';
+  const conn = lines.find(l => l.startsWith('c='))?.match(/(\d+\.\d+\.\d+\.\d+)/)?.[1] || '—';
+  const media = lines.find(l => l.startsWith('m=audio'));
+  const port = media?.split(' ')[1] || '—';
+  const rtpmap = lines.find(l => l.startsWith('a=rtpmap:'))?.replace('a=rtpmap:', '') || '—';
+  preview.innerHTML = `📋 <b>${session}</b> &nbsp;·&nbsp; ${conn}:${port} &nbsp;·&nbsp; ${rtpmap}`;
+};
+
+window.clearEditSdp = function(id) {
+  const ta = document.getElementById(`edit-sdp-${id}`);
+  if (ta) { ta.value = ''; onEditSdpInput(id, ta); }
+};
+
+window.saveEditSdp = async function(id) {
+  const ta = document.getElementById(`edit-sdp-${id}`);
+  const content = ta?.value.trim();
+  if (!content) return;
+  const ch = allChannels.find(c => c.id === id);
+  const suggested = (ch?.name || 'stream').toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').slice(0, 40);
+  const filename = prompt('Nom du fichier (sans extension) :', suggested);
+  if (!filename) return;
+  try {
+    const r = await apiFetch('/api/admin/sdp/save', { method: 'POST', body: JSON.stringify({ filename, content }) });
+    const data = await r.json();
+    log(`SDP sauvegardé : ${data.filename}`, 'success');
+  } catch (e) { log('Erreur sauvegarde SDP : ' + e.message, 'error'); }
+};
+
+window.applyEditSdp = async function(id) {
+  const ta = document.getElementById(`edit-sdp-${id}`);
+  const content = ta?.value.trim();
+  if (!content) { log('Contenu SDP vide', 'error'); return; }
+  const ch = allChannels.find(c => c.id === id);
+  if (!ch) return;
+  const wasActive = ch.active;
+  try {
+    if (wasActive) {
+      await apiFetch(`/api/admin/channels/${id}/stop`, { method: 'POST' });
+    }
+    const newSource = { ...ch.source, sdpContent: content, sdpFile: '' };
+    await apiFetch(`/api/admin/channels/${id}`, { method: 'PUT', body: JSON.stringify({ source: newSource }) });
+    log('Source SDP mise à jour', 'success');
+    if (wasActive) {
+      await apiFetch(`/api/admin/channels/${id}/start`, { method: 'POST' });
+      log('Stream redémarré avec le nouveau SDP', 'success');
+    }
+    loadChannels();
+  } catch (e) { log('Erreur application SDP : ' + e.message, 'error'); }
+};
 
 async function saveChannelEdit(id) {
   const updates = {
