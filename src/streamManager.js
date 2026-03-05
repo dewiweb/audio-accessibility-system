@@ -81,19 +81,20 @@ class StreamManager extends EventEmitter {
     const playlistPath = path.join(outputDir, 'stream.m3u8');
     const sourceConfig = this._resolveSource(source);
 
-    // Sources fichier : buffer plus large + pas de suppression agressive des segments
-    // pour éviter les 404 en rafale (race condition client/FFmpeg)
     const isFileSource = source.type === 'file';
-    const hlsListSize  = isFileSource ? Math.max(config.audio.hlsListSize, 6) : config.audio.hlsListSize;
-    const hlsFlags     = isFileSource
-      ? 'append_list+omit_endlist+independent_segments+discont_start'
-      : 'delete_segments+append_list+omit_endlist+independent_segments';
+
+    // Sources fichier : fenêtre glissante plus large (10s) pour absorber
+    // le retard éventuel du client sans générer de 404.
+    // Sources live (AES67, ALSA…) : fenêtre courte (3s) pour la latence.
+    const hlsListSize = isFileSource
+      ? Math.max(config.audio.hlsListSize, 10)
+      : config.audio.hlsListSize;
 
     const outputOptions = [
       '-f hls',
       `-hls_time ${config.audio.hlsSegmentDuration}`,
       `-hls_list_size ${hlsListSize}`,
-      `-hls_flags ${hlsFlags}`,
+      '-hls_flags delete_segments+append_list+omit_endlist+independent_segments',
       '-hls_segment_type mpegts',
       `-hls_segment_filename ${path.join(outputDir, 'seg%05d.ts')}`,
       '-hls_allow_cache 0',
@@ -177,15 +178,6 @@ class StreamManager extends EventEmitter {
 
     proc.run();
 
-    // Pour les sources fichier : nettoyage périodique des segments accumulés
-    // (on ne supprime pas via delete_segments FFmpeg pour éviter les 404)
-    let cleanupInterval = null;
-    if (isFileSource) {
-      cleanupInterval = setInterval(() => {
-        this._pruneOldSegments(channelId, hlsListSize);
-      }, 5000);
-    }
-
     this.activeStreams.set(channelId, {
       proc,
       source,
@@ -193,7 +185,7 @@ class StreamManager extends EventEmitter {
       tempSdp: sourceConfig.tempSdp || null,
       sineStream: null,
       stopSine: null,
-      cleanupInterval,
+      cleanupInterval: null,
     });
 
     return { channelId, playlistUrl: `/hls/${channelId}/stream.m3u8` };
