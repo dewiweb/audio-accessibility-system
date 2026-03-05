@@ -81,22 +81,31 @@ class StreamManager extends EventEmitter {
     const playlistPath = path.join(outputDir, 'stream.m3u8');
     const sourceConfig = this._resolveSource(source);
 
+    const outputOptions = [
+      '-f hls',
+      `-hls_time ${config.audio.hlsSegmentDuration}`,
+      `-hls_list_size ${config.audio.hlsListSize}`,
+      '-hls_flags delete_segments+append_list+omit_endlist+independent_segments',
+      '-hls_segment_type mpegts',
+      `-hls_segment_filename ${path.join(outputDir, 'seg%05d.ts')}`,
+      '-hls_allow_cache 0',
+      '-movflags +faststart',
+    ];
+
+    // Sélection de paire stéréo dans un flux multicanal (ex: canaux 3+4 d'un flux 8ch)
+    // source.channelMap = [3, 4]  — index 1-basés, comme sur la console
+    if (source.channelMap && source.channelMap.length === 2) {
+      const [l, r] = source.channelMap.map(n => n - 1); // convertir en 0-basé
+      outputOptions.push(`-af pan=stereo|c0=c${l}|c1=c${r}`);
+    }
+
     const proc = ffmpeg(sourceConfig.input)
       .inputOptions(sourceConfig.inputOptions)
       .audioCodec('aac')
       .audioBitrate(config.audio.bitrate)
       .audioFrequency(config.audio.sampleRate)
       .audioChannels(2)
-      .outputOptions([
-        '-f hls',
-        `-hls_time ${config.audio.hlsSegmentDuration}`,
-        `-hls_list_size ${config.audio.hlsListSize}`,
-        '-hls_flags delete_segments+append_list+omit_endlist+independent_segments',
-        '-hls_segment_type mpegts',
-        `-hls_segment_filename ${path.join(outputDir, 'seg%05d.ts')}`,
-        '-hls_allow_cache 0',
-        '-movflags +faststart',
-      ])
+      .outputOptions(outputOptions)
       .output(playlistPath)
       .on('start', (cmd) => {
         console.log(`[Stream ${channelId}] Started: ${cmd}`);
