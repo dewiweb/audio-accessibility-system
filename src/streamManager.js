@@ -84,17 +84,27 @@ class StreamManager extends EventEmitter {
     const isFileSource = source.type === 'file';
     const isLoopFile = isFileSource && source.loop === true;
 
-    // Sources fichier : mode VOD — FFmpeg encode le fichier entier une fois,
-    // écrit EXT-X-ENDLIST, le client HLS.js peut se repositionner librement.
-    // Si loop=true : même mode VOD, mais FFmpeg est relancé automatiquement à la fin.
-    // hls_list_size=0 = tous les segments conservés jusqu'au stopStream().
-    // Sources live (AES67, ALSA…) : mode live bas-latence, fenêtre glissante.
-    const outputOptions = isFileSource ? [
+    // Sources fichier non-loop : mode VOD — tous segments conservés, EXT-X-ENDLIST final.
+    // Sources fichier loop : -stream_loop -1 + hls_list_size 0 (segments jamais supprimés).
+    //   Les numéros de segments croissent indéfiniment mais HLS.js ne demande
+    //   que ceux présents dans la playlist courante — pas de 404.
+    // Sources live (AES67, ALSA…) : fenêtre glissante, delete_segments.
+    if (isLoopFile) sourceConfig.inputOptions = ['-stream_loop -1', ...(sourceConfig.inputOptions || [])];
+
+    const outputOptions = isFileSource && !isLoopFile ? [
       '-f hls',
       `-hls_time ${config.audio.hlsSegmentDuration}`,
       '-hls_list_size 0',
       '-hls_playlist_type vod',
       '-hls_flags independent_segments',
+      '-hls_segment_type mpegts',
+      `-hls_segment_filename ${path.join(outputDir, 'seg%05d.ts')}`,
+      '-hls_allow_cache 1',
+    ] : isLoopFile ? [
+      '-f hls',
+      `-hls_time ${config.audio.hlsSegmentDuration}`,
+      '-hls_list_size 0',
+      '-hls_flags append_list+omit_endlist+independent_segments',
       '-hls_segment_type mpegts',
       `-hls_segment_filename ${path.join(outputDir, 'seg%05d.ts')}`,
       '-hls_allow_cache 1',
@@ -178,31 +188,15 @@ class StreamManager extends EventEmitter {
         this.emit('stream:error', { channelId, error: err.message });
       })
       .on('end', () => {
-        if (isFileSource && isLoopFile) {
-          // Mode VOD loop : FFmpeg a terminé l'encodage du fichier entier.
-          // On supprime les anciens segments TS, puis on relance depuis le début.
-          // Important : on NE PAS appeler stopStream (évite d'émettre stream:stopped).
-          if (!this.activeStreams.has(channelId)) return;
-          console.log(`[Stream ${channelId}] Loop: restarting...`);
-          try {
-            fs.readdirSync(outputDir)
-              .filter(f => f.endsWith('.ts'))
-              .forEach(f => { try { fs.unlinkSync(path.join(outputDir, f)); } catch {} });
-          } catch {}
-          // Supprimer l'ancienne entrée sans émettre stream:stopped
-          this.activeStreams.delete(channelId);
-          // Délai pour laisser les clients finir la lecture de l'itération courante
-          setTimeout(() => {
-            if (this.activeStreams.has(channelId)) return; // déjà relancé ou arrêté manuellement
-            this.startStream(channelId, source);
-          }, 1500);
-        } else if (isFileSource && !isLoopFile) {
-          // Mode VOD non-loop : playlist complète avec EXT-X-ENDLIST.
+        if (isFileSource && !isLoopFile) {
+          // Mode VOD non-loop : FFmpeg a terminé, playlist complète avec EXT-X-ENDLIST.
           console.log(`[Stream ${channelId}] Encoding complete (VOD ready)`);
           const stream = this.activeStreams.get(channelId);
           if (stream) stream.proc = null;
           this.emit('stream:vod_ended', { channelId });
-        } else if (!isFileSource) {
+        } else {
+          // Loop file (stream_loop -1) : on('end') ne devrait pas être atteint en fonctionnement
+          // normal. Si on arrive ici c'est une fin inattendue — traiter comme une erreur.
           console.log(`[Stream ${channelId}] Ended`);
           this.activeStreams.delete(channelId);
           channelManager.setActive(channelId, false);
