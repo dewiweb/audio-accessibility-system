@@ -11,7 +11,27 @@ const config = require('./config');
 const apiRoutes = require('./routes/api');
 const wsManager = require('./wsManager');
 
+// TLS — requis, process.exit(1) si absent
+const CERT_PATH  = process.env.CERT_PATH  || path.join(__dirname, '../certs/server.crt');
+const KEY_PATH   = process.env.KEY_PATH   || path.join(__dirname, '../certs/server.key');
+const HTTPS_PORT = parseInt(process.env.HTTPS_PORT) || 8443;
+
+if (!fs.existsSync(CERT_PATH) || !fs.existsSync(KEY_PATH)) {
+  console.error(`[FATAL] Certificats TLS introuvables : ${CERT_PATH} / ${KEY_PATH}`);
+  console.error(`[FATAL] Exécutez docker-entrypoint.sh ou générez les certs manuellement.`);
+  process.exit(1);
+}
+
+const tlsOptions = {
+  cert: fs.readFileSync(CERT_PATH),
+  key:  fs.readFileSync(KEY_PATH),
+};
+
 const app = express();
+const server = https.createServer(tlsOptions, app);
+
+// expressWs doit être initialisé avec le serveur HTTPS avant toute route WS
+expressWs(app, server);
 
 // Ensure directories exist
 [config.paths.hlsOutput, config.paths.uploads].forEach(dir => {
@@ -69,24 +89,6 @@ app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ error: err.message });
 });
-
-const CERT_PATH  = process.env.CERT_PATH  || path.join(__dirname, '../certs/server.crt');
-const KEY_PATH   = process.env.KEY_PATH   || path.join(__dirname, '../certs/server.key');
-const HTTPS_PORT = parseInt(process.env.HTTPS_PORT) || 8443;
-
-if (!fs.existsSync(CERT_PATH) || !fs.existsSync(KEY_PATH)) {
-  console.error(`[FATAL] Certificats TLS introuvables : ${CERT_PATH} / ${KEY_PATH}`);
-  console.error(`[FATAL] Exécutez docker-entrypoint.sh ou générez les certs manuellement.`);
-  process.exit(1);
-}
-
-const tlsOptions = {
-  cert: fs.readFileSync(CERT_PATH),
-  key:  fs.readFileSync(KEY_PATH),
-};
-
-const server = https.createServer(tlsOptions, app);
-expressWs(app, server);
 
 server.listen(HTTPS_PORT, config.server.host, () => {
   console.log(`\n🎧 Audio Accessibility System`);
