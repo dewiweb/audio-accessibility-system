@@ -1227,13 +1227,20 @@ function buildSource() {
 async function createChannel() {
   const name = document.getElementById('new-name').value.trim();
   if (!name) { alert('Le nom est requis'); return; }
+  let source;
+  try {
+    source = buildSource();
+  } catch (e) {
+    alert(e.message);
+    return;
+  }
   const payload = {
     name,
     description: document.getElementById('new-desc').value,
     language: document.getElementById('new-lang').value,
     icon: document.getElementById('new-icon').value,
     color: document.getElementById('new-color').value,
-    source: buildSource(),
+    source,
   };
   try {
     await apiFetch('/api/admin/channels', { method: 'POST', body: JSON.stringify(payload) });
