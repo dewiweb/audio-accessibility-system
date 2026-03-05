@@ -478,16 +478,13 @@
         </div>
         <div class="form-row">
           <label class="form-label">Icône</label>
-          <select class="form-input" id="new-icon">
-            <option value="🎧">🎧 Casque</option>
-            <option value="🎙️">🎙️ Micro</option>
-            <option value="🔊">🔊 Son</option>
-            <option value="🦻">🦻 Accessibilité</option>
-            <option value="🌍">🌍 International</option>
-            <option value="🎬">🎬 Film</option>
-            <option value="🎭">🎭 Spectacle</option>
-            <option value="📻">📻 Radio</option>
-          </select>
+          <div>
+            <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">
+              <input class="form-input" id="new-icon" value="🎧" style="flex:1" oninput="document.getElementById('new-icon-preview').textContent=this.value" />
+              <span id="new-icon-preview" style="font-size:24px;min-width:32px;text-align:center">🎧</span>
+            </div>
+            <div id="new-icon-grid" style="display:flex;flex-wrap:wrap;gap:4px;padding:8px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)"></div>
+          </div>
         </div>
       </div>
       <div class="form-row">
@@ -562,10 +559,23 @@ async function login() {
 }
 
 // --- INIT ---
+const ICON_LIST = ['🎧','🎵','🎶','🔊','📻','🎙','🎤','🎼','🎹','🎸','🥁','🎺','🎻','🎷','🔔','📢','💬','🌍','🌐','♿','👂','🦻','💡','⭐','🎯','🎭','🏛','🎪','🎬','🗣'];
+
+function buildIconGrid(gridId, inputId, previewId) {
+  const grid = document.getElementById(gridId);
+  if (!grid) return;
+  grid.innerHTML = ICON_LIST.map(e =>
+    `<button type="button" title="${e}" style="font-size:18px;background:none;border:1px solid transparent;border-radius:6px;padding:2px 5px;cursor:pointer;transition:background 0.15s"
+      onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='none'"
+      onclick="document.getElementById('${inputId}').value='${e}';document.getElementById('${previewId}').textContent='${e}'">${e}</button>`
+  ).join('');
+}
+
 function init() {
   connectWs();
   loadQr();
   loadChannels();
+  buildIconGrid('new-icon-grid', 'new-icon', 'new-icon-preview');
 }
 
 function connectWs() {
@@ -713,6 +723,9 @@ function renderChannelDetail(ch) {
   const isAes67 = ch.source?.type === 'aes67';
 
   el.innerHTML = `
+    <div style="margin-bottom:12px">
+      <button class="btn-sm" style="background:var(--surface2);color:var(--text2);font-size:12px" onclick="showOverview()">← Vue d'ensemble</button>
+    </div>
     <div class="detail-card">
       <div class="detail-card-header">Statut du canal</div>
       <div class="detail-card-body" style="display:flex;align-items:center;gap:16px">
@@ -798,7 +811,17 @@ function renderChannelDetail(ch) {
         <div class="form-row-2">
           <div class="form-row">
             <label class="form-label">Icône</label>
-            <input class="form-input" id="edit-icon" value="${ch.icon}" />
+            <div style="position:relative">
+              <div style="display:flex;gap:6px;align-items:center">
+                <input class="form-input" id="edit-icon" value="${ch.icon}" style="flex:1" oninput="document.getElementById('edit-icon-preview').textContent=this.value" />
+                <span id="edit-icon-preview" style="font-size:24px;min-width:32px;text-align:center">${ch.icon}</span>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;padding:8px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)">
+                ${['🎧','🎵','🎶','🔊','📻','🎙','🎤','🎼','🎹','🎸','🥁','🎺','🎻','🎷','🔔','📢','💬','🌍','🌐','♿','👂','🦻','💡','⭐','🎯','🎭','🏛','🎪'].map(e =>
+                  `<button type="button" title="${e}" style="font-size:18px;background:none;border:1px solid transparent;border-radius:6px;padding:2px 5px;cursor:pointer;transition:background 0.15s" onmouseover="this.style.background='var(--surface3)'" onmouseout="this.style.background='none'" onclick="document.getElementById('edit-icon').value='${e}';document.getElementById('edit-icon-preview').textContent='${e}'">${e}</button>`
+                ).join('')}
+              </div>
+            </div>
           </div>
           <div class="form-row">
             <label class="form-label">Couleur</label>
