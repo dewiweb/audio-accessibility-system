@@ -83,17 +83,23 @@ class StreamManager extends EventEmitter {
 
     const isFileSource = source.type === 'file';
 
-    // Sources fichier : fenêtre glissante plus large (10s) pour absorber
-    // le retard éventuel du client sans générer de 404.
-    // Sources live (AES67, ALSA…) : fenêtre courte (3s) pour la latence.
-    const hlsListSize = isFileSource
-      ? Math.max(config.audio.hlsListSize, 10)
-      : config.audio.hlsListSize;
-
-    const outputOptions = [
+    // Sources fichier : mode VOD — FFmpeg encode le fichier entier une fois,
+    // écrit EXT-X-ENDLIST, le client HLS.js peut se repositionner librement.
+    // hls_list_size=0 = tous les segments conservés jusqu'au stopStream().
+    // Sources live (AES67, ALSA…) : mode live bas-latence, fenêtre glissante.
+    const outputOptions = isFileSource ? [
       '-f hls',
       `-hls_time ${config.audio.hlsSegmentDuration}`,
-      `-hls_list_size ${hlsListSize}`,
+      '-hls_list_size 0',
+      '-hls_playlist_type vod',
+      '-hls_flags independent_segments',
+      '-hls_segment_type mpegts',
+      `-hls_segment_filename ${path.join(outputDir, 'seg%05d.ts')}`,
+      '-hls_allow_cache 1',
+    ] : [
+      '-f hls',
+      `-hls_time ${config.audio.hlsSegmentDuration}`,
+      `-hls_list_size ${config.audio.hlsListSize}`,
       '-hls_flags delete_segments+append_list+omit_endlist+independent_segments',
       '-hls_segment_type mpegts',
       `-hls_segment_filename ${path.join(outputDir, 'seg%05d.ts')}`,
@@ -170,10 +176,18 @@ class StreamManager extends EventEmitter {
         this.emit('stream:error', { channelId, error: err.message });
       })
       .on('end', () => {
-        console.log(`[Stream ${channelId}] Ended`);
-        this.activeStreams.delete(channelId);
-        channelManager.setActive(channelId, false);
-        this.emit('stream:ended', { channelId });
+        if (isFileSource) {
+          // Mode VOD : FFmpeg a terminé l'encodage mais le canal reste actif
+          // pour que les clients puissent lire la playlist jusqu'à la fin.
+          console.log(`[Stream ${channelId}] Encoding complete (VOD ready)`);
+          const stream = this.activeStreams.get(channelId);
+          if (stream) stream.proc = null;
+        } else {
+          console.log(`[Stream ${channelId}] Ended`);
+          this.activeStreams.delete(channelId);
+          channelManager.setActive(channelId, false);
+          this.emit('stream:ended', { channelId });
+        }
       });
 
     proc.run();
@@ -259,10 +273,12 @@ class StreamManager extends EventEmitter {
     const stream = this.activeStreams.get(channelId);
     if (!stream) return false;
 
-    try {
-      stream.proc.kill('SIGTERM');
-    } catch (e) {
-      console.warn(`[Stream ${channelId}] Kill error:`, e.message);
+    if (stream.proc) {
+      try {
+        stream.proc.kill('SIGTERM');
+      } catch (e) {
+        console.warn(`[Stream ${channelId}] Kill error:`, e.message);
+      }
     }
 
     if (stream.tempSdp && fs.existsSync(stream.tempSdp)) {
@@ -372,7 +388,7 @@ class StreamManager extends EventEmitter {
       case 'file':
         return {
           input: source.path,
-          inputOptions: ['-stream_loop -1'],
+          inputOptions: [],
         };
       case 'testtone': {
         const sineStream = generateSineStream(source.frequency || 440, config.audio.sampleRate);
