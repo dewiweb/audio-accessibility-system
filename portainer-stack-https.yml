@@ -1,0 +1,67 @@
+services:
+  audio-access:
+    image: ghcr.io/dewiweb/audio-accessibility-system:latest
+    container_name: audio-access
+    restart: unless-stopped
+
+    # CRITIQUE: network_mode host obligatoire pour recevoir les flux RTP/multicast AES67
+    network_mode: host
+
+    environment:
+      NODE_ENV: production
+      PORT: "8080"
+      HOST: "127.0.0.1"        # En écoute locale uniquement — nginx expose le 443
+
+      ADMIN_PASSWORD: "votre-mot-de-passe-admin"
+      SESSION_SECRET: "une-chaine-aleatoire-longue-ici"
+
+      # Mettre l'URL HTTPS publique pour le QR code
+      PUBLIC_URL: "https://192.168.100.251"
+
+      HLS_SEGMENT_DURATION: "1"
+      HLS_LIST_SIZE: "3"
+      AUDIO_SAMPLE_RATE: "48000"
+      AUDIO_BITRATE: "128k"
+
+      RTP_BUFFER_MS: "200"
+      MULTICAST_INTERFACE: "192.168.100.251"
+
+    volumes:
+      - audio-access-data:/app/uploads
+      - audio-access-sdp:/app/sdp
+      - audio-access-hls:/app/public/hls
+      - /opt/audio-access/audio:/app/audio:ro
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  nginx:
+    image: nginx:alpine
+    container_name: audio-access-nginx
+    restart: unless-stopped
+
+    # network_mode host pour proxifier vers localhost:8080 (même host que l'app)
+    network_mode: host
+
+    volumes:
+      # Config nginx
+      - /opt/audio-access/nginx/audio-access.conf:/etc/nginx/conf.d/default.conf:ro
+      # Certificats TLS (générés par generate-cert.sh)
+      - /opt/audio-access/certs:/etc/nginx/certs:ro
+
+    depends_on:
+      - audio-access
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+volumes:
+  audio-access-data:
+  audio-access-sdp:
+  audio-access-hls:
