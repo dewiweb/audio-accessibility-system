@@ -30,6 +30,11 @@ const tlsOptions = {
 const app = express();
 const server = https.createServer(tlsOptions, app);
 
+// Keep-alive : réutilisation des connexions TLS entre requêtes HLS
+// Crucial pour 200 clients : évite un handshake TLS à chaque segment
+server.keepAliveTimeout = 65000;
+server.headersTimeout   = 66000;
+
 // expressWs doit être initialisé avec le serveur HTTPS avant toute route WS
 expressWs(app, server);
 
@@ -44,7 +49,9 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 app.use(cors());
-app.use(morgan('dev'));
+app.use(morgan('dev', {
+  skip: (req) => req.path.startsWith('/hls/') && req.path.endsWith('.ts'),
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

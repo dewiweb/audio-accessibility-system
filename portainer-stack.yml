@@ -27,8 +27,10 @@ services:
       HTTPS_PORT: "9443"
 
       # HLS streaming
-      HLS_SEGMENT_DURATION: "1"
-      HLS_LIST_SIZE: "3"
+      # Segment 4s : 50 req/s pour 200 clients au lieu de 200 req/s avec 1s
+      # Latence live +3s (7s au lieu de 4s) — acceptable pour audiodescription
+      HLS_SEGMENT_DURATION: "4"
+      HLS_LIST_SIZE: "4"
       AUDIO_SAMPLE_RATE: "48000"
       AUDIO_BITRATE: "128k"
 
