@@ -81,11 +81,19 @@ class StreamManager extends EventEmitter {
     const playlistPath = path.join(outputDir, 'stream.m3u8');
     const sourceConfig = this._resolveSource(source);
 
+    // Sources fichier : buffer plus large + pas de suppression agressive des segments
+    // pour éviter les 404 en rafale (race condition client/FFmpeg)
+    const isFileSource = source.type === 'file';
+    const hlsListSize  = isFileSource ? Math.max(config.audio.hlsListSize, 6) : config.audio.hlsListSize;
+    const hlsFlags     = isFileSource
+      ? 'append_list+omit_endlist+independent_segments+discont_start'
+      : 'delete_segments+append_list+omit_endlist+independent_segments';
+
     const outputOptions = [
       '-f hls',
       `-hls_time ${config.audio.hlsSegmentDuration}`,
-      `-hls_list_size ${config.audio.hlsListSize}`,
-      '-hls_flags delete_segments+append_list+omit_endlist+independent_segments',
+      `-hls_list_size ${hlsListSize}`,
+      `-hls_flags ${hlsFlags}`,
       '-hls_segment_type mpegts',
       `-hls_segment_filename ${path.join(outputDir, 'seg%05d.ts')}`,
       '-hls_allow_cache 0',
@@ -169,6 +177,15 @@ class StreamManager extends EventEmitter {
 
     proc.run();
 
+    // Pour les sources fichier : nettoyage périodique des segments accumulés
+    // (on ne supprime pas via delete_segments FFmpeg pour éviter les 404)
+    let cleanupInterval = null;
+    if (isFileSource) {
+      cleanupInterval = setInterval(() => {
+        this._pruneOldSegments(channelId, hlsListSize);
+      }, 5000);
+    }
+
     this.activeStreams.set(channelId, {
       proc,
       source,
@@ -176,6 +193,7 @@ class StreamManager extends EventEmitter {
       tempSdp: sourceConfig.tempSdp || null,
       sineStream: null,
       stopSine: null,
+      cleanupInterval,
     });
 
     return { channelId, playlistUrl: `/hls/${channelId}/stream.m3u8` };
@@ -261,6 +279,10 @@ class StreamManager extends EventEmitter {
 
     if (stream.stopSine) {
       try { stream.stopSine(); } catch (e) {}
+    }
+
+    if (stream.cleanupInterval) {
+      clearInterval(stream.cleanupInterval);
     }
 
     this.activeStreams.delete(channelId);
@@ -378,6 +400,22 @@ class StreamManager extends EventEmitter {
       }
       default:
         throw new Error(`Unknown source type: ${source.type}`);
+    }
+  }
+
+  _pruneOldSegments(channelId, keepCount) {
+    const outputDir = path.join(config.paths.hlsOutput, channelId);
+    if (!fs.existsSync(outputDir)) return;
+    try {
+      const files = fs.readdirSync(outputDir)
+        .filter(f => f.endsWith('.ts'))
+        .sort();
+      const toDelete = files.slice(0, Math.max(0, files.length - keepCount - 2));
+      for (const f of toDelete) {
+        try { fs.unlinkSync(path.join(outputDir, f)); } catch (e) {}
+      }
+    } catch (e) {
+      console.warn(`[Stream ${channelId}] Prune error:`, e.message);
     }
   }
 
