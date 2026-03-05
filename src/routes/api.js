@@ -9,6 +9,8 @@ const config = require('../config');
 const QRCode = require('qrcode');
 
 const sdpDir = path.join(__dirname, '../../sdp');
+const audioDir = path.join(__dirname, '../../uploads/audio');
+
 const sdpStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     if (!fs.existsSync(sdpDir)) fs.mkdirSync(sdpDir, { recursive: true });
@@ -27,6 +29,30 @@ const uploadSdp = multer({
       cb(null, true);
     } else {
       cb(new Error('Seuls les fichiers .sdp sont acceptés'));
+    }
+  },
+});
+
+const audioStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    if (!fs.existsSync(audioDir)) fs.mkdirSync(audioDir, { recursive: true });
+    cb(null, audioDir);
+  },
+  filename: (req, file, cb) => {
+    const safe = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+    cb(null, safe);
+  },
+});
+const uploadAudio = multer({
+  storage: audioStorage,
+  limits: { fileSize: 500 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['.mp3', '.wav', '.ogg', '.flac', '.aac', '.m4a', '.opus'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowed.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Format audio non supporté. Formats acceptés: mp3, wav, ogg, flac, aac, m4a, opus'));
     }
   },
 });
@@ -90,15 +116,16 @@ router.post('/admin/channels', requireAdmin, (req, res) => {
   const { name, description, language, icon, color, source } = req.body;
   if (!name || !source) return res.status(400).json({ error: 'name and source are required' });
 
-  // If SDP content was pasted inline, save it to disk
+  // If SDP content was pasted inline (no file path), save it to disk
   if (source.type === 'aes67' && source.sdpContent && !source.sdpFile) {
-    const sdpDir = path.join(__dirname, '../../sdp');
     if (!fs.existsSync(sdpDir)) fs.mkdirSync(sdpDir, { recursive: true });
     const safeName = name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
-    const sdpPath = `/app/sdp/${safeName}.sdp`;
     const localPath = path.join(sdpDir, `${safeName}.sdp`);
     fs.writeFileSync(localPath, source.sdpContent);
-    source.sdpFile = sdpPath;
+    source.sdpFile = `/app/sdp/${safeName}.sdp`;
+    delete source.sdpContent;
+  } else if (source.type === 'aes67' && source.sdpContent && source.sdpFile) {
+    // sdpFile already set (from upload) — discard redundant sdpContent
     delete source.sdpContent;
   }
 
@@ -192,6 +219,37 @@ router.post('/admin/sdp/save', requireAdmin, (req, res) => {
 router.delete('/admin/sdp/:filename', requireAdmin, (req, res) => {
   const safe = req.params.filename.replace(/[^a-zA-Z0-9._-]/g, '_');
   const filePath = path.join(sdpDir, safe);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Fichier introuvable' });
+  fs.unlinkSync(filePath);
+  res.json({ success: true });
+});
+
+router.get('/admin/audio/list', requireAdmin, (req, res) => {
+  if (!fs.existsSync(audioDir)) return res.json([]);
+  const files = fs.readdirSync(audioDir)
+    .filter(f => /\.(mp3|wav|ogg|flac|aac|m4a|opus)$/i.test(f))
+    .map(f => ({
+      filename: f,
+      path: `/app/uploads/audio/${f}`,
+      size: fs.statSync(path.join(audioDir, f)).size,
+    }));
+  res.json(files);
+});
+
+router.post('/admin/audio/upload', requireAdmin, uploadAudio.single('audiofile'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu' });
+  res.json({
+    filename: req.file.filename,
+    path: `/app/uploads/audio/${req.file.filename}`,
+    size: req.file.size,
+  });
+}, (err, req, res, next) => {
+  res.status(400).json({ error: err.message });
+});
+
+router.delete('/admin/audio/:filename', requireAdmin, (req, res) => {
+  const safe = req.params.filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const filePath = path.join(audioDir, safe);
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Fichier introuvable' });
   fs.unlinkSync(filePath);
   res.json({ success: true });

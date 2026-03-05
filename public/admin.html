@@ -497,12 +497,13 @@
       <div class="form-row">
         <label class="form-label">Type de source audio *</label>
         <select class="form-input" id="new-source-type" onchange="updateSourceForm()">
-          <option value="aes67">AES67 / Dante (RTP multicast)</option>
-          <option value="aes67sdp">AES67 via fichier SDP</option>
+          <option value="aes67">AES67 / Dante (RTP multicast direct)</option>
+          <option value="aes67sdp-upload">📂 AES67 via fichier SDP (upload)</option>
+          <option value="aes67sdp-paste">✏️ AES67 via contenu SDP (coller)</option>
           <option value="alsa">Interface ALSA (Linux)</option>
           <option value="pulse">PulseAudio</option>
           <option value="rtsp">Flux RTSP</option>
-          <option value="file">Fichier audio (boucle)</option>
+          <option value="file">🎵 Fichier audio (boucle)</option>
           <option value="testtone">Tonalité de test</option>
         </select>
       </div>
@@ -954,13 +955,15 @@ window.loadSdpList = async function() {
 };
 
 window.onSdpExistingSelect = function() {
-  const sel = document.getElementById('src-sdp-existing');
-  const opt = sel.selectedOptions[0];
+  const opt = document.getElementById('src-sdp-existing')?.selectedOptions[0];
   if (!opt || !opt.value) return;
-  const content = decodeURIComponent(opt.dataset.content || '');
-  document.getElementById('src-aes67sdp-content').value = content;
   document.getElementById('src-aes67sdp-path').value = opt.value;
-  onSdpContentInput(document.getElementById('src-aes67sdp-content'));
+  const status = document.getElementById('sdp-upload-status');
+  if (status) {
+    status.style.display = 'block';
+    status.style.color = 'var(--accent2)';
+    status.textContent = `✓ Fichier sélectionné : ${opt.dataset.filename || opt.value}`;
+  }
 };
 
 window.onSdpFileSelect = async function(input) {
@@ -994,9 +997,8 @@ async function uploadSdpFile(file) {
     const data = await r.json();
     status.style.color = 'var(--green)';
     status.textContent = `✓ ${data.filename} uploadé (${data.size} octets)`;
-    document.getElementById('src-aes67sdp-content').value = data.content;
-    document.getElementById('src-aes67sdp-path').value = data.path;
-    onSdpContentInput(document.getElementById('src-aes67sdp-content'));
+    const pathEl = document.getElementById('src-aes67sdp-path');
+    if (pathEl) pathEl.value = data.path;
     loadSdpList();
   } catch (e) {
     status.style.color = 'var(--red)';
@@ -1093,21 +1095,21 @@ window.updateSourceForm = function() {
         </div>
         <div class="form-row"><label class="form-label">Interface réseau (optionnel)</label><input class="form-input" id="src-aes67-iface" placeholder="laisser vide = auto" /></div>
       </div>`,
-    aes67sdp: `
-      <div style="font-size:12px;color:var(--accent2);margin-bottom:12px">📄 AES67 via SDP — uploader ou coller le contenu SDP exporté depuis la console</div>
+    'aes67sdp-upload': `
+      <div style="font-size:12px;color:var(--accent2);margin-bottom:12px">� AES67 via fichier SDP — uploader un fichier .sdp exporté depuis la console Dante/AES67</div>
 
       <div class="form-row">
-        <label class="form-label">Fichiers SDP existants sur le serveur</label>
+        <label class="form-label">Fichiers SDP déjà sur le serveur</label>
         <div style="display:flex;gap:8px;align-items:center">
           <select class="form-input" id="src-sdp-existing" style="flex:1" onchange="onSdpExistingSelect()">
-            <option value="">— chargement... —</option>
+            <option value="">— sélectionner un fichier existant —</option>
           </select>
           <button type="button" class="btn-sm" style="background:var(--surface3);color:var(--text2);white-space:nowrap" onclick="loadSdpList()">↺ Rafraîchir</button>
         </div>
       </div>
 
-      <div style="display:flex;align-items:center;gap:10px;margin:10px 0;color:var(--text3);font-size:12px">
-        <div style="flex:1;height:1px;background:var(--border)"></div>ou uploader un fichier<div style="flex:1;height:1px;background:var(--border)"></div>
+      <div style="display:flex;align-items:center;gap:10px;margin:14px 0 10px;color:var(--text3);font-size:12px">
+        <div style="flex:1;height:1px;background:var(--border)"></div>ou uploader un nouveau fichier<div style="flex:1;height:1px;background:var(--border)"></div>
       </div>
 
       <div class="form-row">
@@ -1123,25 +1125,25 @@ window.updateSourceForm = function() {
         <div id="sdp-upload-status" style="font-size:12px;margin-top:6px;display:none"></div>
       </div>
 
-      <div style="display:flex;align-items:center;gap:10px;margin:10px 0;color:var(--text3);font-size:12px">
-        <div style="flex:1;height:1px;background:var(--border)"></div>ou coller directement<div style="flex:1;height:1px;background:var(--border)"></div>
-      </div>
+      <div class="form-row" style="margin-top:10px">
+        <label class="form-label">Fichier SDP sélectionné</label>
+        <input class="form-input" id="src-aes67sdp-path" readonly placeholder="Aucun fichier sélectionné" style="color:var(--accent2);font-size:12px" />
+      </div>`,
+
+    'aes67sdp-paste': `
+      <div style="font-size:12px;color:var(--accent2);margin-bottom:12px">✏️ AES67 via contenu SDP — coller ou saisir le contenu SDP directement</div>
 
       <div class="form-row">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
           <label class="form-label" style="margin:0">Contenu SDP</label>
-          <div style="display:flex;gap:6px">
-            <button type="button" class="btn-sm" style="background:var(--surface3);color:var(--text2);font-size:11px" onclick="clearSdpContent()">Effacer</button>
-            <button type="button" class="btn-sm btn-green" style="font-size:11px" id="sdp-save-btn" onclick="saveSdpContent()" disabled>💾 Sauvegarder sur serveur</button>
-          </div>
+          <button type="button" class="btn-sm" style="background:var(--surface3);color:var(--text2);font-size:11px" onclick="clearSdpContent()">Effacer</button>
         </div>
-        <textarea class="form-input" id="src-aes67sdp-content" rows="6"
+        <textarea class="form-input" id="src-aes67sdp-content" rows="7"
           placeholder="v=0&#10;o=- 0 0 IN IP4 192.168.x.x&#10;s=AES67 Stream&#10;c=IN IP4 239.69.x.x/32&#10;t=0 0&#10;m=audio 5004 RTP/AVP 96&#10;a=rtpmap:96 L24/48000/2&#10;a=ptime:1"
           oninput="onSdpContentInput(this)"></textarea>
         <div id="sdp-preview" style="margin-top:6px;font-size:11px;color:var(--text3);display:none"></div>
-      </div>
-
-      <input type="hidden" id="src-aes67sdp-path" />`,
+        <div style="margin-top:8px;font-size:12px;color:var(--text3)">💡 Le contenu sera sauvegardé automatiquement sur le serveur lors de la création du canal.</div>
+      </div>`,
     alsa: `
       <div class="form-row-2">
         <div class="form-row"><label class="form-label">Carte (card)</label><input class="form-input" id="src-alsa-card" value="0" /></div>
@@ -1149,11 +1151,45 @@ window.updateSourceForm = function() {
       </div>`,
     pulse: `<div class="form-row"><label class="form-label">Device PulseAudio</label><input class="form-input" id="src-pulse-device" placeholder="default" /></div>`,
     rtsp: `<div class="form-row"><label class="form-label">URL RTSP</label><input class="form-input" id="src-rtsp-url" placeholder="rtsp://..." /></div>`,
-    file: `<div class="form-row"><label class="form-label">Chemin fichier dans le container</label><input class="form-input" id="src-file-path" placeholder="/audio/audiodesc.mp3" /></div>`,
+    file: `
+      <div style="font-size:12px;color:var(--accent2);margin-bottom:12px">🎵 Fichier audio — uploader un fichier ou spécifier un chemin dans le container</div>
+
+      <div class="form-row">
+        <label class="form-label">Fichiers audio sur le serveur</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select class="form-input" id="src-audio-existing" style="flex:1" onchange="onAudioExistingSelect()">
+            <option value="">— sélectionner un fichier existant —</option>
+          </select>
+          <button type="button" class="btn-sm" style="background:var(--surface3);color:var(--text2);white-space:nowrap" onclick="loadAudioList()">↺ Rafraîchir</button>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;margin:14px 0 10px;color:var(--text3);font-size:12px">
+        <div style="flex:1;height:1px;background:var(--border)"></div>ou uploader un fichier audio<div style="flex:1;height:1px;background:var(--border)"></div>
+      </div>
+
+      <div class="form-row">
+        <label class="form-label">Uploader un fichier audio (mp3, wav, ogg, flac, aac…)</label>
+        <div id="audio-dropzone" style="border:2px dashed var(--border);border-radius:10px;padding:16px;text-align:center;cursor:pointer;transition:border-color 0.2s;font-size:13px;color:var(--text2)"
+             onclick="document.getElementById('src-audio-file-input').click()"
+             ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
+             ondragleave="this.style.borderColor='var(--border)'"
+             ondrop="onAudioDrop(event)">
+          🎵 Cliquer ou glisser-déposer un fichier audio ici
+          <input type="file" id="src-audio-file-input" accept=".mp3,.wav,.ogg,.flac,.aac,.m4a,.opus,audio/*" style="display:none" onchange="onAudioFileSelect(this)" />
+        </div>
+        <div id="audio-upload-status" style="font-size:12px;margin-top:6px;display:none"></div>
+      </div>
+
+      <div class="form-row" style="margin-top:10px">
+        <label class="form-label">Chemin du fichier</label>
+        <input class="form-input" id="src-file-path" placeholder="/app/uploads/audio/fichier.mp3 ou chemin custom" />
+      </div>`,
     testtone: `<div class="form-row"><label class="form-label">Fréquence (Hz)</label><input class="form-input" id="src-tone-freq" value="440" type="number" /></div>`,
   };
   document.getElementById('source-config').innerHTML = configs[type] || '';
-  if (type === 'aes67sdp') loadSdpList();
+  if (type === 'aes67sdp-upload') loadSdpList();
+  if (type === 'file') loadAudioList();
 };
 
 function buildSource() {
@@ -1169,12 +1205,16 @@ function buildSource() {
         sampleRate: parseInt(document.getElementById('src-aes67-samplerate')?.value || 48000),
         interface: document.getElementById('src-aes67-iface')?.value || '',
       };
-    case 'aes67sdp':
-      return {
-        type: 'aes67',
-        sdpFile: document.getElementById('src-aes67sdp-path')?.value || '',
-        sdpContent: document.getElementById('src-aes67sdp-content')?.value || '',
-      };
+    case 'aes67sdp-upload': {
+      const sdpFile = document.getElementById('src-aes67sdp-path')?.value || '';
+      if (!sdpFile) throw new Error('Veuillez sélectionner ou uploader un fichier SDP');
+      return { type: 'aes67', sdpFile };
+    }
+    case 'aes67sdp-paste': {
+      const sdpContent = document.getElementById('src-aes67sdp-content')?.value || '';
+      if (!sdpContent.trim()) throw new Error('Veuillez saisir le contenu SDP');
+      return { type: 'aes67', sdpContent };
+    }
     case 'alsa': return { type, card: parseInt(document.getElementById('src-alsa-card')?.value || 0), device: parseInt(document.getElementById('src-alsa-device')?.value || 0) };
     case 'pulse': return { type, device: document.getElementById('src-pulse-device')?.value || 'default' };
     case 'rtsp': return { type, url: document.getElementById('src-rtsp-url')?.value || '' };

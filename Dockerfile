@@ -20,7 +20,7 @@ COPY src/ ./src/
 COPY public/ ./public/
 
 # Create required directories with correct permissions
-RUN mkdir -p public/hls uploads sdp
+RUN mkdir -p public/hls uploads uploads/audio sdp
 
 # Non-root user for security
 RUN addgroup -S audioapp && adduser -S audioapp -G audioapp \
