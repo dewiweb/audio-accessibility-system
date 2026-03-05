@@ -987,7 +987,33 @@ window.updateSourceForm = function() {
         <div class="form-row"><label class="form-label">Adresse multicast</label><input class="form-input" id="src-aes67-addr" placeholder="239.69.x.x" /></div>
         <div class="form-row"><label class="form-label">Port UDP</label><input class="form-input" id="src-aes67-port" value="5004" type="number" /></div>
       </div>
-      <div class="form-row"><label class="form-label">Interface réseau (optionnel, ex: eth0)</label><input class="form-input" id="src-aes67-iface" placeholder="laisser vide = auto" /></div>`,
+      <div class="form-row-2">
+        <div class="form-row"><label class="form-label">Encodage</label>
+          <select class="form-input" id="src-aes67-encoding">
+            <option value="L24">L24 — PCM 24 bits (AES67 standard)</option>
+            <option value="L16">L16 — PCM 16 bits</option>
+            <option value="AM824">AM824 — AES3/ADAT</option>
+          </select>
+        </div>
+        <div class="form-row"><label class="form-label">Canaux</label>
+          <select class="form-input" id="src-aes67-channels">
+            <option value="2">2 — Stéréo</option>
+            <option value="1">1 — Mono</option>
+            <option value="4">4 — Quad</option>
+            <option value="8">8 — Octo</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row-2">
+        <div class="form-row"><label class="form-label">Sample rate (Hz)</label>
+          <select class="form-input" id="src-aes67-samplerate">
+            <option value="48000">48000 Hz (standard AES67)</option>
+            <option value="44100">44100 Hz</option>
+            <option value="96000">96000 Hz</option>
+          </select>
+        </div>
+        <div class="form-row"><label class="form-label">Interface réseau (optionnel)</label><input class="form-input" id="src-aes67-iface" placeholder="laisser vide = auto" /></div>
+      </div>`,
     aes67sdp: `
       <div style="font-size:12px;color:var(--accent2);margin-bottom:12px">📄 AES67 via SDP — uploader ou coller le contenu SDP exporté depuis la console</div>
 
@@ -1059,6 +1085,9 @@ function buildSource() {
         type: 'aes67',
         multicastAddress: document.getElementById('src-aes67-addr')?.value || '',
         port: parseInt(document.getElementById('src-aes67-port')?.value || 5004),
+        encoding: document.getElementById('src-aes67-encoding')?.value || 'L24',
+        channels: parseInt(document.getElementById('src-aes67-channels')?.value || 2),
+        sampleRate: parseInt(document.getElementById('src-aes67-samplerate')?.value || 48000),
         interface: document.getElementById('src-aes67-iface')?.value || '',
       };
     case 'aes67sdp':
