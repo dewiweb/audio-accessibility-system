@@ -85,11 +85,14 @@ class StreamManager extends EventEmitter {
     const isLoopFile = isFileSource && source.loop === true;
 
     // Sources fichier non-loop : mode VOD — tous segments conservés, EXT-X-ENDLIST final.
-    // Sources fichier loop : -stream_loop -1 + hls_list_size 0 (segments jamais supprimés).
-    //   Les numéros de segments croissent indéfiniment mais HLS.js ne demande
-    //   que ceux présents dans la playlist courante — pas de 404.
+    // Sources fichier loop : -stream_loop -1 + hls_wrap pour recycler la numérotation.
+    //   hls_wrap=N : les numéros de segments bouclent modulo N → seuls N fichiers TS
+    //   existent sur le disque, la playlist reste courte, pas d'accumulation.
+    //   N = 2 × durée_fichier / hls_time (marge ×2 pour que HLS.js ne manque pas de segments).
     // Sources live (AES67, ALSA…) : fenêtre glissante, delete_segments.
     if (isLoopFile) sourceConfig.inputOptions = ['-stream_loop -1', ...(sourceConfig.inputOptions || [])];
+
+    const loopWrap = 2 * Math.ceil(60 / config.audio.hlsSegmentDuration); // 60s de fenêtre max
 
     const outputOptions = isFileSource && !isLoopFile ? [
       '-f hls',
@@ -103,11 +106,12 @@ class StreamManager extends EventEmitter {
     ] : isLoopFile ? [
       '-f hls',
       `-hls_time ${config.audio.hlsSegmentDuration}`,
-      '-hls_list_size 0',
-      '-hls_flags append_list+omit_endlist+independent_segments',
+      `-hls_list_size ${config.audio.hlsListSize}`,
+      `-hls_wrap ${loopWrap}`,
+      '-hls_flags delete_segments+append_list+omit_endlist+independent_segments',
       '-hls_segment_type mpegts',
       `-hls_segment_filename ${path.join(outputDir, 'seg%05d.ts')}`,
-      '-hls_allow_cache 1',
+      '-hls_allow_cache 0',
     ] : [
       '-f hls',
       `-hls_time ${config.audio.hlsSegmentDuration}`,
