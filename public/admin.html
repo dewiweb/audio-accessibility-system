@@ -28,7 +28,7 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
       background: var(--bg);
       color: var(--text);
-      height: 100vh;
+      height: 100dvh;
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -47,7 +47,7 @@
       border: 1px solid var(--border);
       border-radius: 20px;
       padding: 40px 36px;
-      width: 360px;
+      width: min(360px, 92vw);
       text-align: center;
     }
 
@@ -57,7 +57,7 @@
     .login-card input[type="password"] {
       width: 100%; padding: 12px 16px;
       background: var(--surface2); border: 1px solid var(--border);
-      border-radius: 10px; color: var(--text); font-size: 15px;
+      border-radius: 10px; color: var(--text); font-size: 16px;
       outline: none; margin-bottom: 14px;
       transition: border-color 0.2s;
     }
@@ -65,7 +65,8 @@
     .login-card input[type="password"]:focus { border-color: var(--accent); }
 
     .btn-primary {
-      width: 100%; padding: 12px;
+      width: 100%; padding: 14px;
+      min-height: 48px;
       background: var(--accent); border: none; border-radius: 10px;
       color: white; font-size: 15px; font-weight: 600;
       cursor: pointer; transition: opacity 0.2s;
@@ -73,10 +74,10 @@
 
     .btn-primary:hover { opacity: 0.85; }
 
-    #login-error { color: var(--red); font-size: 13px; margin-top: 10px; display: none; }
+    #login-error { color: var(--red); font-size: 13px; margin-top: 10px; display: none; min-height: 1.5em; }
 
     /* LAYOUT */
-    #app { display: none; flex-direction: column; height: 100vh; }
+    #app { display: none; flex-direction: column; height: 100dvh; }
     #app.visible { display: flex; }
 
     .topbar {
@@ -102,9 +103,37 @@
 
     .workspace {
       display: grid;
-      grid-template-columns: 340px 1fr;
+      grid-template-columns: 300px 1fr;
       flex: 1;
       overflow: hidden;
+    }
+
+    /* Responsive mobile: sidebar devient un panneau basculable */
+    @media (max-width: 700px) {
+      .workspace {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr auto;
+      }
+      .sidebar {
+        order: 2;
+        border-right: none;
+        border-top: 1px solid var(--border);
+        max-height: 40vh;
+        overflow-y: auto;
+      }
+      .sidebar.hidden-mobile {
+        display: none;
+      }
+      .main-content { order: 1; }
+      .topbar { padding: 0 12px; }
+      .topbar-title span { display: none; }
+      .content-scroll { padding: 12px; }
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+      .qr-section { flex-direction: column; align-items: flex-start; gap: 12px; }
+      #qr-img { width: 100px; height: 100px; }
+      .form-row-2 { grid-template-columns: 1fr; }
+      .modal { width: 100%; max-width: 100%; border-radius: 20px 20px 0 0; margin-top: auto; }
+      .modal-overlay { align-items: flex-end; }
     }
 
     /* SIDEBAR */
@@ -124,7 +153,8 @@
     .sidebar-header h2 { font-size: 13px; font-weight: 600; flex: 1; }
 
     .btn-sm {
-      padding: 6px 12px;
+      padding: 8px 14px;
+      min-height: 36px;
       border: none; border-radius: 8px;
       font-size: 12px; font-weight: 600;
       cursor: pointer; transition: opacity 0.2s;
@@ -151,7 +181,9 @@
       cursor: pointer;
       border: 2px solid transparent;
       transition: all 0.15s;
+      min-height: 44px;
     }
+    .ch-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
     .ch-item:hover { border-color: var(--border); background: var(--surface3); }
     .ch-item.selected { border-color: var(--accent); }
@@ -322,7 +354,9 @@
     }
 
     .modal-header h3 { flex: 1; font-size: 16px; font-weight: 700; }
-    .modal-close { background: none; border: none; color: var(--text2); font-size: 20px; cursor: pointer; padding: 4px; }
+    .modal-close { background: none; border: none; color: var(--text2); font-size: 20px; cursor: pointer; padding: 8px; min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
+    .modal-close:hover { background: var(--surface2); }
+    .modal-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     .modal-body { padding: 20px 24px; }
     .modal-footer {
       padding: 16px 24px;
@@ -330,8 +364,8 @@
       display: flex; justify-content: flex-end; gap: 8px;
     }
 
-    .btn-cancel { background: var(--surface2); border: 1px solid var(--border); color: var(--text2); padding: 9px 18px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; }
-    .btn-save { background: var(--accent); border: none; color: white; padding: 9px 18px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; }
+    .btn-cancel { background: var(--surface2); border: 1px solid var(--border); color: var(--text2); padding: 11px 18px; min-height: 44px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; }
+    .btn-save { background: var(--accent); border: none; color: white; padding: 11px 18px; min-height: 44px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; }
 
     .live-badge {
       display: inline-flex; align-items: center; gap: 5px;
@@ -359,40 +393,41 @@
 <body>
 
 <!-- LOGIN -->
-<div id="login-screen">
+<div id="login-screen" role="main">
   <div class="login-card">
-    <div style="font-size:40px;margin-bottom:16px">🎛️</div>
+    <div style="font-size:40px;margin-bottom:16px" aria-hidden="true">🎛️</div>
     <h1>Régie Audio</h1>
     <p>Accès réservé au personnel technique</p>
-    <input type="password" id="login-pwd" placeholder="Mot de passe admin" autocomplete="current-password" />
+    <label for="login-pwd" class="form-label" style="text-align:left;display:block;margin-bottom:6px">Mot de passe</label>
+    <input type="password" id="login-pwd" placeholder="Mot de passe admin" autocomplete="current-password" aria-describedby="login-error" />
     <button class="btn-primary" id="login-btn">Accéder à la régie</button>
-    <div id="login-error">Mot de passe incorrect</div>
+    <div id="login-error" role="alert" aria-live="assertive">Mot de passe incorrect</div>
   </div>
 </div>
 
 <!-- APP -->
 <div id="app">
-  <div class="topbar">
-    <div class="topbar-logo">🎛️</div>
+  <div class="topbar" role="banner">
+    <div class="topbar-logo" aria-hidden="true">🎛️</div>
     <div class="topbar-title">Régie Audio <span>— Interface Administrateur</span></div>
-    <div class="ws-badge">
-      <div class="ws-dot" id="ws-dot"></div>
+    <div class="ws-badge" role="status" aria-live="polite" aria-label="État connexion WebSocket">
+      <div class="ws-dot" id="ws-dot" aria-hidden="true"></div>
       <span id="ws-label">Déconnecté</span>
     </div>
   </div>
 
   <div class="workspace">
     <!-- SIDEBAR -->
-    <div class="sidebar">
+    <nav class="sidebar" aria-label="Liste des canaux">
       <div class="sidebar-header">
         <h2>Canaux</h2>
-        <button class="btn-sm btn-add" id="btn-new-channel">+ Nouveau</button>
+        <button class="btn-sm btn-add" id="btn-new-channel" aria-label="Créer un nouveau canal">+ Nouveau</button>
       </div>
-      <div id="channels-sidebar"></div>
-    </div>
+      <div id="channels-sidebar" role="list"></div>
+    </nav>
 
     <!-- MAIN -->
-    <div class="main-content">
+    <main class="main-content" aria-labelledby="content-title">
       <div class="content-header">
         <h2 id="content-title">Vue d'ensemble</h2>
         <div id="content-header-actions"></div>
@@ -444,29 +479,29 @@
           <div id="channel-detail-content"></div>
         </div>
       </div>
-    </div>
+    </main>
   </div>
 </div>
 
 <!-- NEW CHANNEL MODAL -->
-<div class="modal-overlay" id="modal-new">
+<div class="modal-overlay" id="modal-new" role="dialog" aria-modal="true" aria-labelledby="modal-title">
   <div class="modal">
     <div class="modal-header">
-      <h3>Nouveau canal audio</h3>
-      <button class="modal-close" id="modal-close">✕</button>
+      <h3 id="modal-title">Nouveau canal audio</h3>
+      <button class="modal-close" id="modal-close" aria-label="Fermer la fenêtre">✕</button>
     </div>
     <div class="modal-body">
       <div class="form-row">
-        <label class="form-label">Nom du canal *</label>
-        <input class="form-input" id="new-name" placeholder="ex: Audiodescription FR" />
+        <label class="form-label" for="new-name">Nom du canal *</label>
+        <input class="form-input" id="new-name" placeholder="ex: Audiodescription FR" aria-required="true" />
       </div>
       <div class="form-row">
-        <label class="form-label">Description</label>
+        <label class="form-label" for="new-desc">Description</label>
         <input class="form-input" id="new-desc" placeholder="ex: Version française de l'audiodescription" />
       </div>
       <div class="form-row-2">
         <div class="form-row">
-          <label class="form-label">Langue</label>
+          <label class="form-label" for="new-lang">Langue</label>
           <select class="form-input" id="new-lang">
             <option value="fr">🇫🇷 Français</option>
             <option value="en">🇬🇧 English</option>
@@ -477,7 +512,7 @@
           </select>
         </div>
         <div class="form-row">
-          <label class="form-label">Icône</label>
+          <label class="form-label" for="new-icon">Icône</label>
           <select class="form-input" id="new-icon">
             <option value="🎧">🎧 Casque</option>
             <option value="🎙️">🎙️ Micro</option>
@@ -491,11 +526,11 @@
         </div>
       </div>
       <div class="form-row">
-        <label class="form-label">Couleur</label>
-        <input type="color" class="form-input" id="new-color" value="#7c6ff7" style="height:38px;padding:4px 8px;cursor:pointer;" />
+        <label class="form-label" for="new-color">Couleur</label>
+        <input type="color" class="form-input" id="new-color" value="#7c6ff7" style="height:44px;padding:4px 8px;cursor:pointer;" />
       </div>
       <div class="form-row">
-        <label class="form-label">Type de source audio *</label>
+        <label class="form-label" for="new-source-type">Type de source audio *</label>
         <select class="form-input" id="new-source-type" onchange="updateSourceForm()">
           <option value="aes67">AES67 / Dante (RTP multicast)</option>
           <option value="aes67sdp">AES67 via fichier SDP</option>
@@ -661,17 +696,25 @@ function renderSidebar() {
     return;
   }
   el.innerHTML = allChannels.map(ch => `
-    <div class="ch-item ${selectedChannelId === ch.id ? 'selected' : ''}" onclick="selectChannel('${ch.id}')">
-      <div class="ch-item-top">
-        <div class="ch-dot ${ch.active ? 'live' : ''}"></div>
-        <div class="ch-name">${escHtml(ch.name)}</div>
-        <div class="ch-icon">${ch.icon}</div>
-      </div>
-      <div class="ch-meta">
-        <span class="ch-lang">${ch.language.toUpperCase()}</span>
-        <span class="ch-listeners">👥 ${ch.listenerCount}</span>
-        <span style="font-size:11px;color:${ch.active ? 'var(--green)' : 'var(--text3)'}">${ch.active ? '● LIVE' : '○ Arrêté'}</span>
-      </div>
+    <div class="ch-item ${selectedChannelId === ch.id ? 'selected' : ''}"
+         role="listitem">
+      <button
+        class="ch-item-btn"
+        onclick="selectChannel('${ch.id}')"
+        aria-pressed="${selectedChannelId === ch.id}"
+        aria-label="Canal ${escHtml(ch.name)}, ${ch.active ? 'en direct' : 'arrêté'}, ${ch.listenerCount} auditeur${ch.listenerCount !== 1 ? 's' : ''}"
+        style="width:100%;background:none;border:none;text-align:left;cursor:pointer;color:inherit;padding:0">
+        <div class="ch-item-top">
+          <div class="ch-dot ${ch.active ? 'live' : ''}" aria-hidden="true"></div>
+          <div class="ch-name">${escHtml(ch.name)}</div>
+          <div class="ch-icon" aria-hidden="true">${ch.icon}</div>
+        </div>
+        <div class="ch-meta">
+          <span class="ch-lang">${ch.language.toUpperCase()}</span>
+          <span class="ch-listeners" aria-hidden="true">👥 ${ch.listenerCount}</span>
+          <span style="font-size:11px;color:${ch.active ? 'var(--green)' : 'var(--text3)'}" aria-hidden="true">${ch.active ? '● LIVE' : '○ Arrêté'}</span>
+        </div>
+      </button>
     </div>
   `).join('');
 }
@@ -825,13 +868,40 @@ async function startTestTone(id) {
 }
 
 async function deleteChannel(id) {
-  if (!confirm('Supprimer ce canal ? Cette action est irréversible.')) return;
-  try {
-    await apiFetch(`/api/admin/channels/${id}`, { method: 'DELETE' });
-    log('Canal supprimé', 'warn');
-    showOverview();
-    loadChannels();
-  } catch (e) { log('Erreur: ' + e.message, 'error'); }
+  const ch = allChannels.find(c => c.id === id);
+  const name = ch ? ch.name : id;
+  showConfirm(`Supprimer le canal « ${name} » ? Cette action est irréversible.`, async () => {
+    try {
+      await apiFetch(`/api/admin/channels/${id}`, { method: 'DELETE' });
+      log('Canal supprimé', 'warn');
+      showOverview();
+      loadChannels();
+    } catch (e) { log('Erreur: ' + e.message, 'error'); }
+  });
+}
+
+function showConfirm(message, onConfirm) {
+  const overlay = document.createElement('div');
+  overlay.setAttribute('role', 'alertdialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-labelledby', 'confirm-msg');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;z-index:600';
+  overlay.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px 24px;width:min(380px,92vw);text-align:center">
+      <p id="confirm-msg" style="font-size:14px;line-height:1.6;margin-bottom:20px">${escHtml(message)}</p>
+      <div style="display:flex;gap:10px;justify-content:center">
+        <button id="confirm-cancel" style="padding:10px 20px;min-height:44px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">Annuler</button>
+        <button id="confirm-ok" style="padding:10px 20px;min-height:44px;background:var(--red);border:none;color:white;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">Supprimer</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const cancel = overlay.querySelector('#confirm-cancel');
+  const ok = overlay.querySelector('#confirm-ok');
+  const close = () => document.body.removeChild(overlay);
+  cancel.addEventListener('click', close);
+  ok.addEventListener('click', () => { close(); onConfirm(); });
+  overlay.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+  cancel.focus();
 }
 
 async function saveChannelEdit(id) {
@@ -850,14 +920,29 @@ async function saveChannelEdit(id) {
 }
 
 // --- MODAL NEW CHANNEL ---
-document.getElementById('btn-new-channel').addEventListener('click', () => {
-  document.getElementById('modal-new').classList.add('open');
-});
 document.getElementById('modal-close').addEventListener('click', closeModal);
 document.getElementById('modal-cancel').addEventListener('click', closeModal);
 document.getElementById('modal-save').addEventListener('click', createChannel);
 
-function closeModal() { document.getElementById('modal-new').classList.remove('open'); }
+function closeModal() {
+  document.getElementById('modal-new').classList.remove('open');
+  document.getElementById('btn-new-channel').focus();
+}
+
+document.getElementById('modal-new').addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+  if (e.key === 'Tab') {
+    const focusable = document.getElementById('modal-new').querySelectorAll('button, input, select, textarea');
+    const first = focusable[0], last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+});
+
+document.getElementById('btn-new-channel').addEventListener('click', () => {
+  document.getElementById('modal-new').classList.add('open');
+  setTimeout(() => document.getElementById('new-name').focus(), 50);
+});
 
 window.updateSourceForm = function() {
   const type = document.getElementById('new-source-type').value;

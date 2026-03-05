@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#1e1b4b" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -57,10 +57,11 @@
     .header-title p { font-size: 12px; color: var(--text2); margin-top: 2px; }
 
     .status-dot {
-      width: 8px; height: 8px;
+      width: 12px; height: 12px;
       border-radius: 50%;
       background: var(--danger);
       transition: background 0.3s;
+      flex-shrink: 0;
     }
     .status-dot.connected { background: var(--success); box-shadow: 0 0 8px var(--success); }
 
@@ -132,7 +133,7 @@
       background: rgba(255,255,255,0.08);
       padding: 4px 8px;
       border-radius: 20px;
-      font-size: 11px;
+      font-size: 12px;
       color: var(--text2);
       flex-shrink: 0;
     }
@@ -140,7 +141,8 @@
     .channel-badge .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--success); }
 
     .play-btn {
-      width: 100%; padding: 11px;
+      width: 100%; padding: 14px;
+      min-height: 48px;
       background: rgba(255,255,255,0.06);
       border: none; border-radius: 10px;
       color: var(--text); font-size: 14px; font-weight: 600;
@@ -205,15 +207,21 @@
       flex: 1;
       -webkit-appearance: none;
       appearance: none;
-      height: 4px;
-      border-radius: 2px;
+      height: 6px;
+      border-radius: 3px;
       background: rgba(255,255,255,0.15);
       outline: none;
     }
 
+    input[type="range"]:focus-visible {
+      outline: 2px solid var(--accent2);
+      outline-offset: 4px;
+      border-radius: 4px;
+    }
+
     input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
-      width: 18px; height: 18px;
+      width: 24px; height: 24px;
       border-radius: 50%;
       background: var(--accent2);
       cursor: pointer;
@@ -224,7 +232,8 @@
       background: rgba(239,68,68,0.15);
       border: none;
       color: var(--danger);
-      padding: 6px 12px;
+      padding: 10px 16px;
+      min-height: 44px;
       border-radius: 8px;
       font-size: 13px; font-weight: 600;
       cursor: pointer;
@@ -267,7 +276,7 @@
       <h1>Audio Accessibilité</h1>
       <p id="subtitle">Connexion en cours...</p>
     </div>
-    <div class="status-dot" id="status-dot"></div>
+    <div class="status-dot" id="status-dot" role="status" aria-label="Déconnecté" aria-live="polite"></div>
   </div>
 </header>
 
@@ -282,23 +291,25 @@
   </div>
 </main>
 
-<div class="player-bar" id="player-bar">
+<div class="player-bar" id="player-bar" aria-label="Lecteur audio" role="region">
   <div class="player-info">
     <div class="player-icon" id="player-icon">🎧</div>
     <div class="player-channel-name" id="player-name">—</div>
-    <div class="player-status" id="player-status">● EN DIRECT</div>
-    <button class="stop-btn" id="stop-btn">■ Stop</button>
+    <div class="player-status" id="player-status" role="status" aria-live="polite">● EN DIRECT</div>
+    <button class="stop-btn" id="stop-btn" aria-label="Arrêter la lecture">■ Stop</button>
   </div>
   <div class="volume-row">
     <span class="vol-icon">🔈</span>
-    <input type="range" id="volume-slider" min="0" max="100" value="100" />
+    <input type="range" id="volume-slider" min="0" max="100" value="100"
+           aria-label="Volume" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" />
     <span class="vol-icon">🔊</span>
   </div>
 </div>
 
-<audio id="audio-player" autoplay></audio>
-<div class="toast" id="toast"></div>
+<audio id="audio-player" autoplay aria-hidden="true"></audio>
+<div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js"></script>
 <script>
 (function() {
   let ws;
@@ -329,6 +340,7 @@
 
     ws.onopen = () => {
       statusDot.classList.add('connected');
+      statusDot.setAttribute('aria-label', 'Connecté');
       subtitle.textContent = 'Connecté — choisissez un canal';
       clearTimeout(reconnectTimer);
     };
@@ -340,6 +352,7 @@
 
     ws.onclose = () => {
       statusDot.classList.remove('connected');
+      statusDot.setAttribute('aria-label', 'Déconnecté');
       subtitle.textContent = 'Reconnexion...';
       reconnectTimer = setTimeout(connect, 3000);
     };
@@ -382,12 +395,14 @@
             <div class="channel-name">${escapeHtml(ch.name)}</div>
             <div class="channel-desc">${escapeHtml(ch.description || '')}</div>
           </div>
-          <div class="channel-badge">
-            <div class="dot"></div>
-            ${ch.listenerCount} 
+          <div class="channel-badge" aria-label="${ch.listenerCount} auditeur${ch.listenerCount !== 1 ? 's' : ''}">
+            <div class="dot" aria-hidden="true"></div>
+            <span aria-hidden="true">${ch.listenerCount}</span>
           </div>
         </div>
-        <button class="play-btn" data-id="${ch.id}">
+        <button class="play-btn" data-id="${ch.id}"
+          aria-label="${currentChannelId === ch.id ? 'Arrêter ' : 'Écouter '} ${escapeHtml(ch.name)}"
+          aria-pressed="${currentChannelId === ch.id}">
           ${currentChannelId === ch.id ? '⏸ En écoute' : '▶ Écouter'}
         </button>
       </div>
@@ -482,13 +497,14 @@
 
   volumeSlider.addEventListener('input', () => {
     audio.volume = volumeSlider.value / 100;
+    volumeSlider.setAttribute('aria-valuenow', volumeSlider.value);
   });
 
   stopBtn.addEventListener('click', stopPlayback);
 
-  audio.addEventListener('waiting', () => { playerStatus.textContent = '⏳ Chargement...'; });
+  audio.addEventListener('waiting', () => { playerStatus.textContent = 'Chargement en cours…'; });
   audio.addEventListener('playing', () => { playerStatus.textContent = '● EN DIRECT'; });
-  audio.addEventListener('error', () => { playerStatus.textContent = '⚠ Erreur'; });
+  audio.addEventListener('error', () => { playerStatus.textContent = '⚠ Erreur de lecture'; });
 
   function escapeHtml(str) {
     return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -502,6 +518,5 @@
 })();
 </script>
 
-<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js"></script>
 </body>
 </html>
