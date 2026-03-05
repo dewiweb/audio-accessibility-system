@@ -294,6 +294,29 @@
       border-radius: 2px;
     }
 
+    .help-btn {
+      background: rgba(255,255,255,0.08);
+      border: 2px solid rgba(255,255,255,0.12);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 8px 12px;
+      min-height: 44px; min-width: 44px;
+      font-size: 20px;
+      cursor: pointer;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .help-btn:focus-visible {
+      outline: 3px solid var(--accent2);
+      outline-offset: 2px;
+    }
+    .help-btn:active { opacity: 0.7; }
+    .help-btn[aria-pressed="true"] {
+      background: rgba(124,111,247,0.25);
+      border-color: var(--accent);
+    }
+
     @media (min-width: 480px) {
       header { padding: 24px 24px 16px; }
       main { padding: 20px 24px; max-width: 540px; margin: 0 auto; }
@@ -311,6 +334,12 @@
       <h1>Audio Accessibilité</h1>
       <p id="subtitle" aria-live="polite" aria-atomic="true">Connexion en cours...</p>
     </div>
+    <button class="help-btn" id="help-btn"
+      aria-label="Aide : comment utiliser cette interface"
+      aria-pressed="false"
+      title="Aide audio">
+      ❓
+    </button>
     <div class="status-dot" id="status-dot" aria-label="Déconnecté" aria-live="polite" aria-atomic="true"></div>
   </div>
 </header>
@@ -353,6 +382,7 @@
 </footer>
 
 <audio id="audio-player" autoplay aria-hidden="true"></audio>
+<audio id="help-audio" aria-hidden="true"></audio>
 <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
 <script src="/hls.min.js"></script>
@@ -366,6 +396,43 @@
   const statusDot = document.getElementById('status-dot');
   const subtitle = document.getElementById('subtitle');
   const channelsList = document.getElementById('channels-list');
+
+  // --- Bouton d'aide audio ---
+  const helpBtn = document.getElementById('help-btn');
+  const helpAudio = document.getElementById('help-audio');
+  const HELP_LANGS = ['fr', 'en', 'es', 'de', 'ar'];
+
+  function getHelpLang() {
+    const lang = (navigator.language || 'fr').toLowerCase().split('-')[0];
+    return HELP_LANGS.includes(lang) ? lang : 'fr';
+  }
+
+  function stopHelp() {
+    helpAudio.pause();
+    helpAudio.removeAttribute('src');
+    helpBtn.setAttribute('aria-pressed', 'false');
+    helpBtn.setAttribute('aria-label', 'Aide : comment utiliser cette interface');
+  }
+
+  helpBtn.addEventListener('click', () => {
+    if (helpBtn.getAttribute('aria-pressed') === 'true') {
+      stopHelp();
+      showToast('Aide arrêtée', 2000);
+      return;
+    }
+    const lang = getHelpLang();
+    helpAudio.src = `/audio/help/help_${lang}.mp3`;
+    helpAudio.play().catch(() => showToast('Impossible de lire l\'aide audio', 3000));
+    helpBtn.setAttribute('aria-pressed', 'true');
+    helpBtn.setAttribute('aria-label', 'Aide en cours — appuyer pour arrêter');
+    showToast('Lecture de l\'aide audio…', 3000);
+  });
+
+  helpAudio.addEventListener('ended', () => stopHelp());
+  helpAudio.addEventListener('error', () => {
+    stopHelp();
+    showToast('Fichier d\'aide audio indisponible', 3000);
+  });
   channelsList.addEventListener('click', (e) => {
     const btn = e.target.closest('.play-btn');
     if (!btn) return;
