@@ -155,10 +155,7 @@ class StreamManager extends EventEmitter {
     const proc = spawn(ffmpegPath, args, { stdio: ['pipe', 'pipe', 'pipe'] });
 
     proc.stderr.on('data', (d) => {
-      const line = d.toString();
-      if (line.includes('error') || line.includes('Error')) {
-        console.error(`[Stream ${channelId}] FFmpeg:`, line.trim());
-      }
+      process.stdout.write(`[FFmpeg ${channelId.slice(0,8)}] ${d.toString()}`);
     });
 
     const stopSine = writeSinePCM(proc.stdin, frequency, sampleRate);
