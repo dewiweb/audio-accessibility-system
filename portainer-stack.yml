@@ -20,11 +20,11 @@ services:
       SESSION_SECRET: "une-chaine-aleatoire-longue-ici"
 
       # URL publique — passer en https si TLS activé
-      PUBLIC_URL: "https://192.168.100.251"
+      PUBLIC_URL: "https://192.168.100.251:9443"
 
       # HTTPS intégré Node.js (cert auto-généré au démarrage)
       TLS_CN: "192.168.100.251"
-      HTTPS_PORT: "8443"
+      HTTPS_PORT: "9443"
 
       # HLS streaming
       HLS_SEGMENT_DURATION: "1"
