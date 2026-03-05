@@ -510,18 +510,18 @@
       case 'stream:vod_ended':
         if (msg.data && msg.data.channelId === currentChannelId) {
           const ch = channels.find(c => c.id === currentChannelId);
-          if (ch && ch.sourceLoop) {
-            // Loop file VOD : l'encodage 2h est terminé, FFmpeg repart depuis le début.
-            // Recharger le stream HLS depuis seg00000 (la playlist est réécrite).
-            console.log('[PWA] Loop VOD ended, restarting from beginning...');
+          if (ch && ch.sourceLoop && hlsInstance) {
+            // Loop file VOD : la prochaine itération de 2h est encodée et prête.
+            // Recharger la playlist depuis le début (seg00000) sans réinitialiser le player.
+            console.log('[PWA] Loop VOD: next iteration ready, reloading from start...');
             setTimeout(() => {
-              if (currentChannelId && hlsInstance) {
-                hlsInstance.destroy();
-                hlsInstance = null;
+              if (hlsInstance) {
+                hlsInstance.loadSource(ch.hlsUrl);
+                hlsInstance.startLoad(0);
+                audio.play().catch(() => {});
               }
-              playChannel(currentChannelId);
-            }, 1500);
-          } else {
+            }, 500);
+          } else if (!ch || !ch.sourceLoop) {
             stopPlayback();
             showToast('Lecture terminée', 2500);
           }
