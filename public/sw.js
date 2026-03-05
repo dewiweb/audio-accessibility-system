@@ -1,8 +1,9 @@
-const CACHE_NAME = 'audio-access-v3';
+const CACHE_NAME = 'audio-access-v4';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
+  '/hls.min.js',
 ];
 
 self.addEventListener('install', (event) => {
