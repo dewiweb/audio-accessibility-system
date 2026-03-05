@@ -1046,7 +1046,7 @@ function renderChannelDetail(ch) {
           </select>
           <div class="src-hint-grey">Quelle paire mono du flux sera envoyée en stéréo L/R</div>
         </div>
-        <div class="form-row">
+        <div class="form-row" id="downmix-row-edit" ${(ch.source?.channels||2)<=2?'style="display:none"':''}>
           <label class="form-label" for="edit-aes67-downmix">Downmix vers stéréo</label>
           <select class="form-input" id="edit-aes67-downmix">
             <option value="" ${!ch.source?.downmix?'selected':''}>— pas de traitement (flux déjà stéréo) —</option>
@@ -1433,13 +1433,20 @@ window.clearSdpContent = function() {
   if (status) status.className = 'sdp-upload-status msg-hidden';
 };
 
-window.updateChannelMapOptionsFor = function(chSelId, rowId, mapSelId) {
+window.updateChannelMapOptionsFor = function(chSelId, rowId, mapSelId, downmixRowId) {
   const n = parseInt(document.getElementById(chSelId)?.value || 2);
   const row = document.getElementById(rowId);
   const sel = document.getElementById(mapSelId);
+  const dmRow = downmixRowId ? document.getElementById(downmixRowId) : null;
   if (!row || !sel) return;
-  if (n <= 2) { row.classList.add('channel-map-row-hidden'); sel.value = ''; return; }
+  if (n <= 2) {
+    row.classList.add('channel-map-row-hidden');
+    sel.value = '';
+    if (dmRow) dmRow.style.setProperty('display', 'none');
+    return;
+  }
   row.classList.remove('channel-map-row-hidden');
+  if (dmRow) dmRow.style.removeProperty('display');
   const pairs = [];
   for (let i = 1; i < n; i += 2) pairs.push([i, i + 1]);
   sel.innerHTML = '<option value="">— tous les canaux (mix) —</option>' +
@@ -1450,9 +1457,16 @@ window.updateEditChannelMapOptions = function() {
   const n = parseInt(document.getElementById('edit-aes67-channels')?.value || 2);
   const row = document.getElementById('edit-channel-map-row');
   const sel = document.getElementById('edit-aes67-channelmap');
+  const dmRow = document.getElementById('downmix-row-edit');
   if (!row || !sel) return;
-  if (n <= 2) { row.style.setProperty('display', 'none'); sel.value = ''; return; }
+  if (n <= 2) {
+    row.style.setProperty('display', 'none');
+    sel.value = '';
+    if (dmRow) dmRow.style.setProperty('display', 'none');
+    return;
+  }
   row.style.removeProperty('display');
+  if (dmRow) dmRow.style.removeProperty('display');
   const pairs = [];
   for (let i = 1; i < n; i += 2) pairs.push([i, i + 1]);
   sel.innerHTML = '<option value="">— tous les canaux (mix) —</option>' +
@@ -1463,9 +1477,16 @@ window.updateChannelMapOptions = function() {
   const n = parseInt(document.getElementById('src-aes67-channels')?.value || 2);
   const row = document.getElementById('channel-map-row');
   const sel = document.getElementById('src-aes67-channelmap');
+  const dmRow = document.getElementById('downmix-row');
   if (!row || !sel) return;
-  if (n <= 2) { row.classList.add('channel-map-row-hidden'); sel.value = ''; return; }
+  if (n <= 2) {
+    row.classList.add('channel-map-row-hidden');
+    sel.value = '';
+    if (dmRow) dmRow.style.setProperty('display', 'none');
+    return;
+  }
   row.classList.remove('channel-map-row-hidden');
+  if (dmRow) dmRow.style.removeProperty('display');
   const pairs = [];
   for (let i = 1; i < n; i += 2) pairs.push([i, i + 1]);
   sel.innerHTML = '<option value="">— tous les canaux (mix) —</option>' +
@@ -1506,7 +1527,7 @@ window.updateSourceForm = function() {
         </select>
         <div class="src-hint-grey">Sélectionnez quelle paire de canaux mono du flux sera envoyée en stéréo L/R</div>
       </div>
-      <div class="form-row" id="downmix-row">
+      <div class="form-row" id="downmix-row" style="display:none">
         <label class="form-label">Downmix vers stéréo</label>
         <select class="form-input" id="src-aes67-downmix">
           <option value="">— pas de traitement (flux déjà stéréo) —</option>
@@ -1571,7 +1592,7 @@ window.updateSourceForm = function() {
         </select>
         <div class="src-hint-grey">Quelle paire mono du flux sera envoyée en stéréo L/R</div>
       </div>
-      <div class="form-row">
+      <div class="form-row" id="downmix-row-sdp" style="display:none">
         <label class="form-label">Downmix vers stéréo</label>
         <select class="form-input" id="src-aes67sdp-downmix">
           <option value="">— pas de traitement (flux déjà stéréo) —</option>
@@ -1610,7 +1631,7 @@ window.updateSourceForm = function() {
         </select>
         <div class="src-hint-grey">Quelle paire mono du flux sera envoyée en stéréo L/R</div>
       </div>
-      <div class="form-row">
+      <div class="form-row" id="downmix-row-paste" style="display:none">
         <label class="form-label">Downmix vers stéréo</label>
         <select class="form-input" id="src-aes67paste-downmix">
           <option value="">— pas de traitement (flux déjà stéréo) —</option>
@@ -1841,8 +1862,8 @@ document.addEventListener('change', (e) => {
   switch (el.dataset.action) {
     case 'update-channel-map':      updateChannelMapOptions(); break;
     case 'update-edit-channel-map': updateEditChannelMapOptions(); break;
-    case 'update-channel-map-sdp':  updateChannelMapOptionsFor('src-aes67sdp-channels', 'channel-map-row-sdp', 'src-aes67sdp-channelmap'); break;
-    case 'update-channel-map-paste':updateChannelMapOptionsFor('src-aes67paste-channels', 'channel-map-row-paste', 'src-aes67paste-channelmap'); break;
+    case 'update-channel-map-sdp':  updateChannelMapOptionsFor('src-aes67sdp-channels', 'channel-map-row-sdp', 'src-aes67sdp-channelmap', 'downmix-row-sdp'); break;
+    case 'update-channel-map-paste':updateChannelMapOptionsFor('src-aes67paste-channels', 'channel-map-row-paste', 'src-aes67paste-channelmap', 'downmix-row-paste'); break;
     case 'sdp-existing-select':  onSdpExistingSelect(); break;
     case 'audio-existing-select':onAudioExistingSelect(); break;
     case 'sdp-file-select':      onSdpFileSelect(el); break;
