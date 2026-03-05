@@ -1,53 +1,52 @@
 const ffmpeg = require('fluent-ffmpeg');
+const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const { EventEmitter } = require('events');
-const { PassThrough } = require('stream');
 const os = require('os');
 const config = require('./config');
 const channelManager = require('./channelManager');
 
-function generateSineStream(frequency = 440, sampleRate = 48000) {
-  const stream = new PassThrough();
+function writeSinePCM(stdinStream, frequency, sampleRate, onStop) {
   const channels = 2;
   const bytesPerSample = 2;
   const chunkMs = 20;
   const samplesPerChunk = Math.floor(sampleRate * chunkMs / 1000);
   const bufSize = samplesPerChunk * channels * bytesPerSample;
   let phase = 0;
-  const phaseInc = (2 * Math.PI * frequency) / sampleRate;
-  let running = false;
+  const phaseInc = (2 * Math.PI * (frequency || 0)) / sampleRate;
+  let running = true;
   let timer = null;
 
   const write = () => {
     if (!running) return;
     const buf = Buffer.alloc(bufSize);
-    for (let i = 0; i < samplesPerChunk; i++) {
-      const sample = Math.round(Math.sin(phase) * 0x6FFF);
-      buf.writeInt16LE(sample, i * channels * bytesPerSample);
-      buf.writeInt16LE(sample, i * channels * bytesPerSample + bytesPerSample);
-      phase += phaseInc;
-      if (phase > 2 * Math.PI) phase -= 2 * Math.PI;
+    if (frequency > 0) {
+      for (let i = 0; i < samplesPerChunk; i++) {
+        const sample = Math.round(Math.sin(phase) * 0x6FFF);
+        buf.writeInt16LE(sample, i * channels * bytesPerSample);
+        buf.writeInt16LE(sample, i * channels * bytesPerSample + bytesPerSample);
+        phase += phaseInc;
+        if (phase > 2 * Math.PI) phase -= 2 * Math.PI;
+      }
     }
-    stream.push(buf);
-    timer = setTimeout(write, chunkMs);
+    if (stdinStream.writable) {
+      stdinStream.write(buf, () => {
+        if (running) timer = setTimeout(write, chunkMs);
+      });
+    } else {
+      running = false;
+    }
   };
 
-  stream.on('pipe', () => {
-    if (!running) {
-      running = true;
-      write();
-    }
-  });
-  stream.on('close', () => {
+  stdinStream.on('error', () => { running = false; });
+  stdinStream.on('close', () => { running = false; });
+  timer = setTimeout(write, 0);
+
+  return () => {
     running = false;
     if (timer) clearTimeout(timer);
-  });
-  stream.on('unpipe', () => {
-    running = false;
-    if (timer) clearTimeout(timer);
-  });
-  return stream;
+  };
 }
 
 class StreamManager extends EventEmitter {
@@ -74,9 +73,12 @@ class StreamManager extends EventEmitter {
       this.stopStream(channelId);
     }
 
+    if (source.type === 'testtone' || source.type === 'silence') {
+      return this._startSineStream(channelId, source);
+    }
+
     const outputDir = this.getChannelOutputDir(channelId);
     const playlistPath = path.join(outputDir, 'stream.m3u8');
-
     const sourceConfig = this._resolveSource(source);
 
     const proc = ffmpeg(sourceConfig.input)
@@ -121,7 +123,75 @@ class StreamManager extends EventEmitter {
       source,
       startedAt: new Date().toISOString(),
       tempSdp: sourceConfig.tempSdp || null,
-      sineStream: sourceConfig.stream || null,
+      sineStream: null,
+      stopSine: null,
+    });
+
+    return { channelId, playlistUrl: `/hls/${channelId}/stream.m3u8` };
+  }
+
+  _startSineStream(channelId, source) {
+    const outputDir = this.getChannelOutputDir(channelId);
+    const sampleRate = config.audio.sampleRate;
+    const frequency = source.frequency || 440;
+    const ffmpegPath = config.audio.ffmpegPath || 'ffmpeg';
+
+    const args = [
+      '-f', 's16le', '-ar', String(sampleRate), '-ac', '2', '-i', 'pipe:0',
+      '-y',
+      '-acodec', 'libopus', '-b:a', config.audio.bitrate, '-ar', String(sampleRate), '-ac', '2',
+      '-f', 'hls',
+      '-hls_time', String(config.audio.hlsSegmentDuration),
+      '-hls_list_size', String(config.audio.hlsListSize),
+      '-hls_flags', 'delete_segments+append_list+omit_endlist+independent_segments',
+      '-hls_segment_type', 'mpegts',
+      '-hls_segment_filename', path.join(outputDir, 'seg%05d.ts'),
+      '-hls_allow_cache', '0',
+      path.join(outputDir, 'stream.m3u8'),
+    ];
+
+    console.log(`[Stream ${channelId}] Spawn: ${ffmpegPath} ${args.join(' ')}`);
+
+    const proc = spawn(ffmpegPath, args, { stdio: ['pipe', 'pipe', 'pipe'] });
+
+    proc.stderr.on('data', (d) => {
+      const line = d.toString();
+      if (line.includes('error') || line.includes('Error')) {
+        console.error(`[Stream ${channelId}] FFmpeg:`, line.trim());
+      }
+    });
+
+    const stopSine = writeSinePCM(proc.stdin, frequency, sampleRate);
+
+    proc.on('spawn', () => {
+      console.log(`[Stream ${channelId}] Sine stream spawned`);
+      channelManager.setActive(channelId, true);
+      this.emit('stream:started', { channelId });
+    });
+
+    proc.on('error', (err) => {
+      console.error(`[Stream ${channelId}] Spawn error:`, err.message);
+      stopSine();
+      this.activeStreams.delete(channelId);
+      channelManager.setActive(channelId, false);
+      this.emit('stream:error', { channelId, error: err.message });
+    });
+
+    proc.on('close', (code) => {
+      console.log(`[Stream ${channelId}] Sine process closed (code ${code})`);
+      stopSine();
+      this.activeStreams.delete(channelId);
+      channelManager.setActive(channelId, false);
+      this.emit('stream:ended', { channelId });
+    });
+
+    this.activeStreams.set(channelId, {
+      proc: { kill: (sig) => proc.kill(sig) },
+      source,
+      startedAt: new Date().toISOString(),
+      tempSdp: null,
+      sineStream: null,
+      stopSine,
     });
 
     return { channelId, playlistUrl: `/hls/${channelId}/stream.m3u8` };
@@ -141,8 +211,8 @@ class StreamManager extends EventEmitter {
       try { fs.unlinkSync(stream.tempSdp); } catch (e) {}
     }
 
-    if (stream.sineStream) {
-      try { stream.sineStream.destroy(); } catch (e) {}
+    if (stream.stopSine) {
+      try { stream.stopSine(); } catch (e) {}
     }
 
     this.activeStreams.delete(channelId);
