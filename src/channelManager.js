@@ -98,15 +98,27 @@ class ChannelManager extends EventEmitter {
   }
 
   getPublicChannels() {
-    return this.getAllChannels().filter(c => c.active).map(c => ({
-      id: c.id,
-      name: c.name,
-      description: c.description,
-      language: c.language,
-      icon: c.icon,
-      color: c.color,
-      listenerCount: c.listenerCount,
-    }));
+    return this.getAllChannels().filter(c => c.active).map(c => {
+      const isWebRtc = c.source?.type === 'aes67' && c.source?.streamMode !== 'hls';
+      const ch = {
+        id: c.id,
+        name: c.name,
+        description: c.description,
+        language: c.language,
+        icon: c.icon,
+        color: c.color,
+        listenerCount: c.listenerCount,
+        sourceType: c.source?.type || 'unknown',
+        sourceLoop: c.source?.loop === true,
+        streamMode: isWebRtc ? 'webrtc' : 'hls',
+      };
+      if (isWebRtc) {
+        ch.whepUrl = `/whep/${c.id}`;
+      } else {
+        ch.hlsUrl = `/hls/${c.id}/stream.m3u8`;
+      }
+      return ch;
+    });
   }
 
   setActive(id, active) {
