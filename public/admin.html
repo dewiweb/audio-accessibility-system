@@ -900,7 +900,7 @@ function buildIconGrid(gridId, inputId, previewId) {
 }
 
 function init() {
-  connectWs();
+  connectAdminWs();
   loadQr();
   loadChannels();
   buildIconGrid('new-icon-grid', 'new-icon', 'new-icon-preview');
@@ -2584,6 +2584,79 @@ document.getElementById('btn-system').addEventListener('click', () => {
 
 document.getElementById('sys-refresh-btn').addEventListener('click', refreshSystemView);
 document.getElementById('btn-back-from-system').addEventListener('click', hideSystemView);
+
+// WebSocket pour mises à jour en temps réel
+let adminWs = null;
+let adminWsReconnectTimer = null;
+
+function connectAdminWs() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  // Security by design : le token HMAC est passé dans l'URL WS (seul mécanisme disponible
+  // pour les WebSockets, qui ne supportent pas les headers HTTP personnalisés).
+  adminWs = new WebSocket(`${proto}//${location.host}/ws?adminToken=${encodeURIComponent(adminToken)}`);
+  
+  adminWs.onopen = () => {
+    console.log('[Admin] WebSocket connecté');
+    const wsDot = document.getElementById('ws-dot');
+    const wsLabel = document.getElementById('ws-label');
+    if (wsDot) wsDot.classList.add('connected');
+    if (wsLabel) wsLabel.textContent = 'Connecté';
+    clearTimeout(adminWsReconnectTimer);
+  };
+  
+  adminWs.onmessage = (evt) => {
+    try {
+      const msg = JSON.parse(evt.data);
+      handleAdminWsMessage(msg);
+    } catch (e) {
+      console.warn('[Admin] Erreur parsing WebSocket message:', e);
+    }
+  };
+  
+  adminWs.onclose = () => {
+    console.log('[Admin] WebSocket déconnecté');
+    const wsDot = document.getElementById('ws-dot');
+    const wsLabel = document.getElementById('ws-label');
+    if (wsDot) wsDot.classList.remove('connected');
+    if (wsLabel) wsLabel.textContent = 'Reconnexion...';
+    adminWsReconnectTimer = setTimeout(connectAdminWs, 3000);
+  };
+  
+  adminWs.onerror = () => adminWs.close();
+}
+
+function handleAdminWsMessage(msg) {
+  switch (msg.type) {
+    case 'stream:started':
+    case 'stream:stopped':
+    case 'stream:vod_ended':
+      // Mettre à jour les stats immédiatement
+      if (typeof updateStats === 'function') {
+        updateStats(msg.data || {});
+      }
+      // Mettre à jour les streams actifs si vue système visible
+      if (_sysViewOpen && typeof loadActiveStreams === 'function') {
+        loadActiveStreams();
+      }
+      // Recharger les canaux pour mettre à jour l'état actif/inactif
+      if (typeof loadChannels === 'function') {
+        loadChannels();
+      }
+      break;
+    case 'channel:updated':
+      // Mettre à jour les canaux et stats
+      if (typeof loadChannels === 'function') {
+        loadChannels();
+      }
+      break;
+    case 'connected':
+      // Initialisation
+      if (typeof loadChannels === 'function') {
+        loadChannels();
+      }
+      break;
+  }
+}
 
 // Fermer la vue système si on clique sur un canal dans la sidebar
 const _origShowChannel = typeof showChannel === 'function' ? showChannel : null;
