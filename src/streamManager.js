@@ -68,7 +68,7 @@ class StreamManager extends EventEmitter {
     return dir;
   }
 
-  startStream(channelId, source) {
+  async startStream(channelId, source) {
     if (this.activeStreams.has(channelId)) {
       this.stopStream(channelId);
     }
@@ -216,10 +216,19 @@ class StreamManager extends EventEmitter {
     return { channelId, playlistUrl: `/hls/${channelId}/stream.m3u8` };
   }
 
-  _startLoopFileStream(channelId, source, sourceConfig, outputDir) {
+  _getFileDuration(filePath) {
+    return new Promise((resolve) => {
+      ffmpeg.ffprobe(filePath, (err, meta) => {
+        if (err || !meta?.format?.duration) return resolve(null);
+        resolve(parseFloat(meta.format.duration));
+      });
+    });
+  }
+
+  async _startLoopFileStream(channelId, source, sourceConfig, outputDir) {
     // Boucle infinie via stream_loop -1 + HLS live (fenêtre glissante, delete_segments).
     // FFmpeg relit le fichier indéfiniment → pas de EXT-X-ENDLIST → HLS.js en mode live.
-    // stream:started émis dès le premier segment disponible (~1s après le démarrage).
+    // stream:started émis dès le premier segment disponible après le démarrage.
     // Pas de pré-encodage, pas d'attente : le stream démarre immédiatement.
 
     const playlistPath = path.join(outputDir, 'stream.m3u8');
@@ -239,10 +248,15 @@ class StreamManager extends EventEmitter {
     }
     if (source.gain && source.gain !== 0) audioFilters.push(`volume=${source.gain}dB`);
 
-    // Segments 4s pour loop files : la latence n'est pas critique (fichier en boucle),
-    // mais un buffer suffisant est essentiel pour éviter les 404 sur réseau WiFi chargé.
-    // 4s × 6 segments = 24s de fenêtre — largement suffisant même sur WiFi congestionné.
-    const LOOP_SEGMENT_DURATION = 4;
+    // Durée de segment adaptée à la durée du fichier :
+    //   segment ≤ fileDuration/2 pour éviter les discontinuités à la jointure de boucle,
+    //   minimum 2s, maximum 4s, fenêtre totale = 6 segments (min 12s, max 24s).
+    const fileDuration = await this._getFileDuration(sourceConfig.input);
+    let LOOP_SEGMENT_DURATION = 4;
+    if (fileDuration !== null) {
+      LOOP_SEGMENT_DURATION = Math.max(2, Math.min(4, Math.floor(fileDuration / 2)));
+      console.log(`[Stream ${channelId}] File duration: ${fileDuration.toFixed(1)}s → hls_time: ${LOOP_SEGMENT_DURATION}s`);
+    }
     const LOOP_LIST_SIZE = 6;
 
     const outputOptions = [
