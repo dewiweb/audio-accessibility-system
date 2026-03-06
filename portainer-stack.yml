@@ -88,6 +88,7 @@ services:
     network_mode: host
     environment:
       MTX_LOGLEVEL: "info"
+      MTX_RTSPADDRESS: ":8554"
       MTX_WEBRTCADDRESS: ":8889"
     logging:
       driver: json-file

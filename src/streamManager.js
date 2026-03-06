@@ -407,7 +407,11 @@ class StreamManager extends EventEmitter {
 
   _startWhipStream(channelId, source) {
     const sourceConfig = this._resolveSource(source);
-    const whipUrl = `${config.audio.mediamtxUrl}/${channelId}/whip`;
+    // RTSP vers MediaMTX (plus fiable que WHIP : pas de DTLS FFmpeg↔MediaMTX)
+    // MediaMTX redistribue ensuite en WHEP vers les navigateurs
+    const rtspBase = (config.audio.mediamtxUrl || 'http://127.0.0.1:8889')
+      .replace(/^http:/, 'rtsp:').replace(/^https:/, 'rtsps:').replace(/:8889$/, ':8554');
+    const rtspUrl = `${rtspBase}/${channelId}`;
 
     // Filtres audio identiques au mode HLS
     const audioFilters = [];
@@ -425,28 +429,25 @@ class StreamManager extends EventEmitter {
     }
     if (source.gain && source.gain !== 0) audioFilters.push(`volume=${source.gain}dB`);
 
-    // FFmpeg 8.0 exige une piste vidéo ET audio pour WHIP (bug/limitation upstream)
-    // Piste vidéo factice : noir 2×2 px à 1 fps, H.264 ultra-minimal (~200 bps)
+    // FFmpeg publie en RTSP vers MediaMTX (TCP, opus audio only)
     const args = [
-      '-f', 'lavfi', '-i', 'color=black:s=2x2:r=1',
       ...sourceConfig.inputOptions.flatMap(o => o.trim().split(/\s+/)),
       '-i', sourceConfig.input,
     ];
     if (audioFilters.length > 0) args.push('-af', audioFilters.join(','));
     args.push(
-      '-c:v', 'libx264', '-preset', 'ultrafast', '-tune', 'zerolatency',
-      '-b:v', '10k', '-pix_fmt', 'yuv420p',
       '-c:a', 'libopus',
       '-b:a', '64k',
       '-ac', '2',
       '-ar', String(config.audio.sampleRate),
       '-application', 'lowdelay',
       '-frame_duration', '20',
-      '-f', 'whip',
-      whipUrl,
+      '-f', 'rtsp',
+      '-rtsp_transport', 'tcp',
+      rtspUrl,
     );
 
-    console.log(`[Stream ${channelId}] WHIP mode → ${whipUrl}`);
+    console.log(`[Stream ${channelId}] WebRTC mode → RTSP→MediaMTX → ${rtspUrl}`);
     const proc = spawn(config.audio.ffmpegPath || 'ffmpeg', args, { stdio: ['ignore', 'pipe', 'pipe'] });
 
     proc.stdout.on('data', () => {});
@@ -458,18 +459,18 @@ class StreamManager extends EventEmitter {
     proc.once('spawn', () => {
       channelManager.setActive(channelId, true);
       this.emit('stream:started', { channelId, mode: 'webrtc' });
-      console.log(`[Stream ${channelId}] WHIP stream started (pid ${proc.pid})`);
+      console.log(`[Stream ${channelId}] RTSP→MediaMTX stream started (pid ${proc.pid})`);
     });
 
     proc.once('error', err => {
-      console.error(`[Stream ${channelId}] WHIP error:`, err.message);
+      console.error(`[Stream ${channelId}] RTSP error:`, err.message);
       this.activeStreams.delete(channelId);
       channelManager.setActive(channelId, false);
       this.emit('stream:error', { channelId, error: err.message });
     });
 
     proc.once('close', code => {
-      console.log(`[Stream ${channelId}] WHIP process closed (code ${code})`);
+      console.log(`[Stream ${channelId}] RTSP process closed (code ${code})`);
       this.activeStreams.delete(channelId);
       channelManager.setActive(channelId, false);
       if (sourceConfig.tempSdp && fs.existsSync(sourceConfig.tempSdp)) {
@@ -482,7 +483,7 @@ class StreamManager extends EventEmitter {
       proc: { kill: sig => proc.kill(sig), pid: proc.pid },
       source,
       mode: 'webrtc',
-      whipUrl,
+      rtspUrl,
       startedAt: new Date().toISOString(),
       tempSdp: sourceConfig.tempSdp || null,
       stopSine: null,
