@@ -425,20 +425,24 @@ class StreamManager extends EventEmitter {
     }
     if (source.gain && source.gain !== 0) audioFilters.push(`volume=${source.gain}dB`);
 
-    // Construire la commande FFmpeg avec spawn (pas fluent-ffmpeg : besoin de -f rtp pour WHIP)
+    // FFmpeg 8.0 exige une piste vidéo ET audio pour WHIP (bug/limitation upstream)
+    // Piste vidéo factice : noir 2×2 px à 1 fps, H.264 ultra-minimal (~200 bps)
     const args = [
+      '-f', 'lavfi', '-i', 'color=black:s=2x2:r=1',
       ...sourceConfig.inputOptions.flatMap(o => o.trim().split(/\s+/)),
       '-i', sourceConfig.input,
     ];
     if (audioFilters.length > 0) args.push('-af', audioFilters.join(','));
     args.push(
+      '-c:v', 'libx264', '-preset', 'ultrafast', '-tune', 'zerolatency',
+      '-b:v', '10k', '-pix_fmt', 'yuv420p',
       '-c:a', 'libopus',
       '-b:a', '64k',
       '-ac', '2',
       '-ar', String(config.audio.sampleRate),
       '-application', 'lowdelay',
       '-frame_duration', '20',
-      '-f', 'rtp',
+      '-f', 'whip',
       whipUrl,
     );
 
