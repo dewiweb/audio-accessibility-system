@@ -107,6 +107,38 @@ Câblage : **Cat6 minimum**, longueurs ≤90 m patch inclus.
 | RSSI minimum | −75 dBm | Éjecte les clients trop éloignés (sticky client) |
 | VLAN tag | VLAN 20 | Isolation réseau régie |
 
+### QR code de connexion WiFi automatique
+
+Le QR code affiché à l'entrée peut encoder simultanément la connexion WiFi **et** l'URL du système, évitant toute saisie manuelle au spectateur.
+
+**Format du QR code WiFi (standard WPA) :**
+
+```
+WIFI:S:Assistance-Audio;T:WPA;P:bienvenue;;
+```
+
+- `S:` — nom du SSID
+- `T:WPA` — type de sécurité (WPA2-Personal)
+- `P:` — passphrase (choisir simple et mémorisable)
+
+Le smartphone scanne le QR code → se connecte automatiquement au WiFi → ouvre l'URL du système. **Zéro saisie.**
+
+**Compatibilité :**
+- Android 10+ : connexion automatique native
+- iOS 11+ : connexion automatique native (via l'app Appareil Photo)
+- Fallback : saisie manuelle du SSID/mot de passe toujours possible
+
+**Génération du QR code :**
+
+```bash
+# Exemple avec qrencode (Linux)
+qrencode -o wifi-qr.png "WIFI:S:Assistance-Audio;T:WPA;P:bienvenue;;"
+```
+
+Ou via un générateur en ligne : [qr-code-generator.com](https://www.qr-code-generator.com) → type "WiFi".
+
+> **Sécurité** : WPA2-Personal avec passphrase simple est suffisant pour ce contexte (réseau sans accès internet, trafic chiffré en TLS 1.3 de bout en bout). L'objectif est d'empêcher la capture passive du trafic WiFi, pas de contrôler l'accès au réseau.
+
 ---
 
 ## Smartphones
