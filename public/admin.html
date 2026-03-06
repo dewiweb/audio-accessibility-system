@@ -467,6 +467,35 @@
     .toggle-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
     .toggle-checkbox { width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent); flex-shrink: 0; }
     .toggle-label { font-size: 13px; color: var(--text2); cursor: pointer; }
+
+    /* SYSTEM VIEW */
+    .sys-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    @media (max-width: 700px) { .sys-grid { grid-template-columns: 1fr; } }
+    .sys-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; }
+    .sys-card-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text2); margin-bottom: 14px; }
+    .sys-metric { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .sys-metric-label { font-size: 13px; color: var(--text2); }
+    .sys-metric-value { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .sys-bar-wrap { margin-bottom: 10px; }
+    .sys-bar-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--text2); margin-bottom: 4px; }
+    .sys-bar { height: 8px; background: var(--surface3); border-radius: 99px; overflow: hidden; }
+    .sys-bar-fill { height: 100%; border-radius: 99px; background: var(--accent); transition: width 0.6s ease; }
+    .sys-bar-fill.warn { background: var(--yellow); }
+    .sys-bar-fill.danger { background: var(--red); }
+    .iface-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .iface-table th { text-align: left; font-size: 11px; color: var(--text3); font-weight: 600; padding: 0 8px 8px 0; border-bottom: 1px solid var(--border); }
+    .iface-table td { padding: 8px 8px 0 0; color: var(--text2); vertical-align: top; }
+    .iface-name { color: var(--accent2); font-weight: 600; }
+    .iface-addr { font-family: monospace; color: var(--text); }
+    .netcfg-badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: var(--surface3); color: var(--text2); margin-left: 6px; }
+    .netcfg-badge.dual { background: rgba(124,111,247,0.18); color: var(--accent2); }
+    .netcfg-row { display: flex; align-items: baseline; gap: 6px; margin-bottom: 8px; }
+    .netcfg-key { font-size: 12px; color: var(--text3); min-width: 110px; flex-shrink: 0; }
+    .netcfg-val { font-size: 13px; font-family: monospace; color: var(--text); word-break: break-all; }
+    .sys-refresh-btn { background: var(--surface3); color: var(--text2); font-size: 12px; padding: 5px 12px; border-radius: 8px; border: 1px solid var(--border); cursor: pointer; }
+    .sys-refresh-btn:hover { background: var(--surface); color: var(--text); }
+    .sys-uptime { font-size: 13px; color: var(--text2); margin-top: 4px; }
+    .sys-view-wide { grid-column: 1 / -1; }
   </style>
 </head>
 <body>
@@ -495,6 +524,7 @@
       <div class="ws-dot" id="ws-dot" aria-hidden="true"></div>
       <span id="ws-label" aria-live="polite">Déconnecté</span>
     </div>
+    <button class="btn-settings" id="btn-system" aria-label="Vue système">⚙ Système</button>
     <button class="btn-settings" id="btn-change-pwd" aria-label="Changer le mot de passe administrateur">🔒 MDP</button>
     <button class="btn-logout" id="btn-logout" aria-label="Se déconnecter de la régie">← Déconnexion</button>
   </div>
@@ -560,6 +590,95 @@
         <!-- CHANNEL DETAIL -->
         <div id="view-channel" class="view-channel-wrap">
           <div id="channel-detail-content"></div>
+        </div>
+
+        <!-- SYSTEM VIEW -->
+        <div id="view-system" style="display:none">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <span style="font-size:13px;color:var(--text3)" id="sys-last-update">—</span>
+            <button class="sys-refresh-btn" id="sys-refresh-btn">↻ Actualiser</button>
+          </div>
+
+          <div class="sys-grid">
+            <!-- CPU -->
+            <div class="sys-card">
+              <div class="sys-card-title">🖥 Processeur</div>
+              <div class="sys-bar-wrap">
+                <div class="sys-bar-label">
+                  <span>Charge CPU</span>
+                  <span id="sys-cpu-pct">—</span>
+                </div>
+                <div class="sys-bar"><div class="sys-bar-fill" id="sys-cpu-bar" style="width:0%"></div></div>
+              </div>
+              <div class="sys-metric"><span class="sys-metric-label">Load 1 min</span><span class="sys-metric-value" id="sys-load1">—</span></div>
+              <div class="sys-metric"><span class="sys-metric-label">Load 5 min</span><span class="sys-metric-value" id="sys-load5">—</span></div>
+              <div class="sys-metric"><span class="sys-metric-label">Load 15 min</span><span class="sys-metric-value" id="sys-load15">—</span></div>
+              <div class="sys-metric"><span class="sys-metric-label">Cœurs</span><span class="sys-metric-value" id="sys-cores">—</span></div>
+            </div>
+
+            <!-- Mémoire -->
+            <div class="sys-card">
+              <div class="sys-card-title">💾 Mémoire RAM</div>
+              <div class="sys-bar-wrap">
+                <div class="sys-bar-label">
+                  <span>Utilisation</span>
+                  <span id="sys-mem-pct">—</span>
+                </div>
+                <div class="sys-bar"><div class="sys-bar-fill" id="sys-mem-bar" style="width:0%"></div></div>
+              </div>
+              <div class="sys-metric"><span class="sys-metric-label">Utilisée</span><span class="sys-metric-value" id="sys-mem-used">—</span></div>
+              <div class="sys-metric"><span class="sys-metric-label">Libre</span><span class="sys-metric-value" id="sys-mem-free">—</span></div>
+              <div class="sys-metric"><span class="sys-metric-label">Totale</span><span class="sys-metric-value" id="sys-mem-total">—</span></div>
+              <div class="sys-uptime" id="sys-uptime">Uptime : —</div>
+            </div>
+
+            <!-- Disque -->
+            <div class="sys-card">
+              <div class="sys-card-title">💿 Disque (sortie HLS)</div>
+              <div class="sys-bar-wrap">
+                <div class="sys-bar-label">
+                  <span>Utilisation</span>
+                  <span id="sys-disk-pct">—</span>
+                </div>
+                <div class="sys-bar"><div class="sys-bar-fill" id="sys-disk-bar" style="width:0%"></div></div>
+              </div>
+              <div class="sys-metric"><span class="sys-metric-label">Utilisé</span><span class="sys-metric-value" id="sys-disk-used">—</span></div>
+              <div class="sys-metric"><span class="sys-metric-label">Libre</span><span class="sys-metric-value" id="sys-disk-free">—</span></div>
+              <div class="sys-metric"><span class="sys-metric-label">Total</span><span class="sys-metric-value" id="sys-disk-total">—</span></div>
+            </div>
+
+            <!-- Infos app -->
+            <div class="sys-card">
+              <div class="sys-card-title">⚙ Application</div>
+              <div class="sys-metric"><span class="sys-metric-label">Node.js</span><span class="sys-metric-value" id="sys-node">—</span></div>
+              <div class="sys-metric"><span class="sys-metric-label">Plateforme</span><span class="sys-metric-value" id="sys-platform">—</span></div>
+              <div class="sys-metric"><span class="sys-metric-label">Environnement</span><span class="sys-metric-value" id="sys-env">—</span></div>
+              <div class="sys-metric"><span class="sys-metric-label">TLS CN</span><span class="sys-metric-value" id="sys-tls-cn">—</span></div>
+            </div>
+
+            <!-- Config réseau -->
+            <div class="sys-card sys-view-wide">
+              <div class="sys-card-title" style="display:flex;align-items:center;gap:8px">
+                🌐 Configuration réseau
+                <span class="netcfg-badge" id="sys-net-mode">chargement...</span>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px" id="sys-netcfg-body">
+                <div id="sys-netcfg-admin"></div>
+                <div id="sys-netcfg-public"></div>
+              </div>
+            </div>
+
+            <!-- Interfaces réseau -->
+            <div class="sys-card sys-view-wide">
+              <div class="sys-card-title">📡 Interfaces réseau détectées</div>
+              <table class="iface-table">
+                <thead><tr>
+                  <th>Interface</th><th>Adresse IP</th><th>Famille</th><th>Masque</th><th>MAC</th>
+                </tr></thead>
+                <tbody id="sys-iface-body"><tr><td colspan="5" style="color:var(--text3);padding-top:8px">Chargement…</td></tr></tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -2075,6 +2194,203 @@ document.getElementById('btn-new-channel').addEventListener('click', () => {
   _focusTrapModal = document.getElementById('modal-new');
   _focusTrapTrigger = document.getElementById('btn-new-channel');
 }, { capture: true });
+
+// ─── VUE SYSTÈME ──────────────────────────────────────────────────────────────
+
+let _sysViewOpen = false;
+let _sysRefreshTimer = null;
+
+function fmtBytes(b) {
+  if (!b && b !== 0) return '—';
+  if (b >= 1e9) return (b / 1e9).toFixed(1) + ' Go';
+  if (b >= 1e6) return (b / 1e6).toFixed(0) + ' Mo';
+  if (b >= 1e3) return (b / 1e3).toFixed(0) + ' Ko';
+  return b + ' o';
+}
+
+function fmtUptime(s) {
+  if (!s) return '—';
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  let r = '';
+  if (d > 0) r += d + 'j ';
+  if (h > 0 || d > 0) r += h + 'h ';
+  r += m + 'min';
+  return r;
+}
+
+function setBar(barId, pct) {
+  const el = document.getElementById(barId);
+  if (!el) return;
+  el.style.width = pct + '%';
+  el.classList.remove('warn', 'danger');
+  if (pct >= 90) el.classList.add('danger');
+  else if (pct >= 70) el.classList.add('warn');
+}
+
+function setText(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val ?? '—';
+}
+
+async function loadSystemInfo() {
+  try {
+    const data = await apiFetch('/api/admin/system/info');
+    const cpu = data.cpu;
+    const mem = data.memory;
+    const disk = data.disk;
+
+    // CPU
+    const cpuPct = cpu.loadPercent;
+    setText('sys-cpu-pct', cpuPct + '%');
+    setBar('sys-cpu-bar', cpuPct);
+    setText('sys-load1',  cpu.loadAvg1);
+    setText('sys-load5',  cpu.loadAvg5);
+    setText('sys-load15', cpu.loadAvg15);
+    setText('sys-cores',  cpu.count + ' × ' + (cpu.model || '').split(' ').slice(0, 3).join(' '));
+
+    // Mémoire
+    const memPct = mem.usedPercent;
+    setText('sys-mem-pct',   memPct + '%');
+    setBar('sys-mem-bar', memPct);
+    setText('sys-mem-used',  fmtBytes(mem.used));
+    setText('sys-mem-free',  fmtBytes(mem.free));
+    setText('sys-mem-total', fmtBytes(mem.total));
+    setText('sys-uptime', 'Uptime : ' + fmtUptime(data.uptime));
+
+    // Disque
+    if (disk) {
+      const diskPct = Math.round((disk.used / disk.total) * 100);
+      setText('sys-disk-pct',   diskPct + '%');
+      setBar('sys-disk-bar', diskPct);
+      setText('sys-disk-used',  fmtBytes(disk.used));
+      setText('sys-disk-free',  fmtBytes(disk.free));
+      setText('sys-disk-total', fmtBytes(disk.total));
+    } else {
+      setText('sys-disk-pct', 'N/A'); setText('sys-disk-used', '—'); setText('sys-disk-free', '—'); setText('sys-disk-total', '—');
+    }
+
+    // App
+    setText('sys-node',     data.nodeVersion);
+    setText('sys-platform', data.platform);
+    setText('sys-env',      data.nodeEnv || '—');
+    setText('sys-tls-cn',   data.tlsCn || '—');
+
+    const now = new Date().toLocaleTimeString('fr-FR');
+    setText('sys-last-update', 'Dernière mise à jour : ' + now);
+  } catch (e) {
+    log('Erreur chargement infos système : ' + e.message, 'error');
+  }
+}
+
+async function loadNetworkConfig() {
+  try {
+    const cfg = await apiFetch('/api/admin/network/config');
+    const badge = document.getElementById('sys-net-mode');
+    if (cfg.isDualNetwork) {
+      badge.textContent = 'Double interface';
+      badge.classList.add('dual');
+    } else {
+      badge.textContent = 'Interface unique';
+      badge.classList.remove('dual');
+    }
+
+    const adminDiv = document.getElementById('sys-netcfg-admin');
+    const publicDiv = document.getElementById('sys-netcfg-public');
+
+    const row = (key, val) => `<div class="netcfg-row"><span class="netcfg-key">${key}</span><span class="netcfg-val">${val || '—'}</span></div>`;
+
+    adminDiv.innerHTML = `<div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:10px;text-transform:uppercase">
+      ${cfg.isDualNetwork ? '🔴 Interface régie (admin)' : '⚪ Interface unique'}
+    </div>
+    ${row('Bind host', cfg.adminHost)}
+    ${row('Port', cfg.adminPort)}
+    ${row('URL admin', cfg.publicUrl)}
+    ${cfg.isDualNetwork ? row('AES67 interface', cfg.multicastInterface || cfg.adminHost) : ''}`;
+
+    publicDiv.innerHTML = cfg.isDualNetwork ? `<div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:10px;text-transform:uppercase">
+      🟢 Interface WiFi public (écoute)
+    </div>
+    ${row('Bind host', cfg.publicHost)}
+    ${row('Port', cfg.publicPort)}
+    ${row('URL publique', cfg.publicListenerUrl || cfg.publicUrl)}
+    ${row('TLS CN', cfg.tlsCn)}` :
+    `<div style="font-size:13px;color:var(--text3);padding-top:12px">
+      Mode double interface non actif.<br><br>
+      Définissez <code style="font-size:12px;color:var(--accent2)">ADMIN_HOST</code> et
+      <code style="font-size:12px;color:var(--accent2)">PUBLIC_HOST</code> dans les variables
+      d'environnement Portainer pour activer le mode production dual-réseau.
+    </div>`;
+  } catch (e) {
+    log('Erreur chargement config réseau : ' + e.message, 'error');
+  }
+}
+
+async function loadNetworkInterfaces() {
+  try {
+    const ifaces = await apiFetch('/api/admin/network/interfaces');
+    const tbody = document.getElementById('sys-iface-body');
+    if (!ifaces.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="color:var(--text3);padding-top:8px">Aucune interface détectée</td></tr>';
+      return;
+    }
+    tbody.innerHTML = ifaces.map(i => `<tr>
+      <td><span class="iface-name">${i.name}</span></td>
+      <td><span class="iface-addr">${i.address}</span></td>
+      <td style="color:var(--text3)">${i.family}</td>
+      <td style="color:var(--text3);font-size:12px">${i.netmask || '—'}</td>
+      <td style="color:var(--text3);font-family:monospace;font-size:11px">${i.mac || '—'}</td>
+    </tr>`).join('');
+  } catch (e) {
+    document.getElementById('sys-iface-body').innerHTML =
+      `<tr><td colspan="5" style="color:var(--red)">Erreur : ${e.message}</td></tr>`;
+  }
+}
+
+async function refreshSystemView() {
+  await Promise.all([loadSystemInfo(), loadNetworkConfig(), loadNetworkInterfaces()]);
+}
+
+function showSystemView() {
+  _sysViewOpen = true;
+  document.getElementById('view-overview').style.display = 'none';
+  document.getElementById('view-channel').style.display = 'none';
+  document.getElementById('view-system').style.display = 'block';
+  document.getElementById('content-title').textContent = 'Système';
+  document.getElementById('content-header-actions').innerHTML = '';
+  refreshSystemView();
+  _sysRefreshTimer = setInterval(refreshSystemView, 15000);
+}
+
+function hideSystemView() {
+  _sysViewOpen = false;
+  document.getElementById('view-system').style.display = 'none';
+  clearInterval(_sysRefreshTimer);
+  _sysRefreshTimer = null;
+}
+
+document.getElementById('btn-system').addEventListener('click', () => {
+  if (_sysViewOpen) {
+    hideSystemView();
+    document.getElementById('view-overview').style.display = '';
+    document.getElementById('content-title').textContent = 'Vue d\'ensemble';
+  } else {
+    showSystemView();
+  }
+});
+
+document.getElementById('sys-refresh-btn').addEventListener('click', refreshSystemView);
+
+// Fermer la vue système si on clique sur un canal dans la sidebar
+const _origShowChannel = typeof showChannel === 'function' ? showChannel : null;
+// Le patron de navigation existant cache overview/channel avant d'afficher le bon — on hook hideSystemView
+const _origSelectChannel = document.getElementById('channels-sidebar').addEventListener;
+document.addEventListener('click', (e) => {
+  if (_sysViewOpen && e.target.closest('.channel-item')) {
+    hideSystemView();
+  }
+});
 </script>
 </body>
 </html>

@@ -330,6 +330,90 @@ router.get('/admin/sources/list', adminLimiter, requireAdmin, (req, res) => {
   });
 });
 
+// ─── Routes Système (Volet 4 — Admin enrichie) ───────────────────────────────
+
+// Infos système : CPU load, mémoire, disque HLS, uptime
+router.get('/admin/system/info', adminLimiter, requireAdmin, (req, res) => {
+  const os = require('os');
+  const cpus = os.cpus();
+  const loadAvg = os.loadavg(); // [1min, 5min, 15min]
+  const totalMem = os.totalmem();
+  const freeMem  = os.freemem();
+  const uptime   = os.uptime(); // secondes
+
+  // Espace disque du répertoire HLS (approximatif via du)
+  exec(`df -k "${config.paths.hlsOutput}" 2>/dev/null | tail -1`, { timeout: 3000 }, (err, stdout) => {
+    let disk = null;
+    if (!err && stdout) {
+      const parts = stdout.trim().split(/\s+/);
+      if (parts.length >= 4) {
+        disk = {
+          total: parseInt(parts[1]) * 1024,
+          used:  parseInt(parts[2]) * 1024,
+          free:  parseInt(parts[3]) * 1024,
+        };
+      }
+    }
+    res.json({
+      cpu: {
+        count: cpus.length,
+        model: cpus[0]?.model || 'unknown',
+        loadAvg1:  Math.round(loadAvg[0] * 100) / 100,
+        loadAvg5:  Math.round(loadAvg[1] * 100) / 100,
+        loadAvg15: Math.round(loadAvg[2] * 100) / 100,
+        loadPercent: Math.min(100, Math.round((loadAvg[0] / cpus.length) * 100)),
+      },
+      memory: {
+        total: totalMem,
+        free:  freeMem,
+        used:  totalMem - freeMem,
+        usedPercent: Math.round(((totalMem - freeMem) / totalMem) * 100),
+      },
+      disk,
+      uptime,
+      nodeVersion: process.version,
+      platform: os.platform(),
+    });
+  });
+});
+
+// Interfaces réseau disponibles sur l'hôte
+router.get('/admin/network/interfaces', adminLimiter, requireAdmin, (req, res) => {
+  const os = require('os');
+  const ifaces = os.networkInterfaces();
+  const result = [];
+  for (const [name, addrs] of Object.entries(ifaces)) {
+    for (const addr of addrs) {
+      if (addr.internal) continue; // skip loopback
+      result.push({
+        name,
+        address: addr.address,
+        family:  addr.family,
+        netmask: addr.netmask,
+        mac:     addr.mac,
+      });
+    }
+  }
+  res.json(result);
+});
+
+// Configuration réseau actuelle de l'application (lecture)
+router.get('/admin/network/config', adminLimiter, requireAdmin, (req, res) => {
+  res.json({
+    adminHost:  process.env.ADMIN_HOST  || process.env.HOST || '0.0.0.0',
+    adminPort:  parseInt(process.env.ADMIN_PORT  || process.env.HTTPS_PORT || 8443),
+    publicHost: process.env.PUBLIC_HOST || process.env.HOST || '0.0.0.0',
+    publicPort: parseInt(process.env.PUBLIC_PORT || process.env.HTTPS_PORT || 8443),
+    publicUrl:  config.publicUrl,
+    publicListenerUrl: process.env.PUBLIC_LISTENER_URL || null,
+    isDualNetwork: (process.env.PUBLIC_HOST && process.env.PUBLIC_HOST !== (process.env.ADMIN_HOST || process.env.HOST || '0.0.0.0'))
+      || (process.env.PUBLIC_PORT && process.env.PUBLIC_PORT !== (process.env.ADMIN_PORT || process.env.HTTPS_PORT || '8443')),
+    multicastInterface: config.audio.multicastInterface || null,
+    tlsCn: process.env.TLS_CN || null,
+    nodeEnv: process.env.NODE_ENV || 'development',
+  });
+});
+
 // Login : seul endpoint qui accepte le mot de passe — retourne un token HMAC signé
 router.post('/admin/auth', authLimiter, async (req, res) => {
   const { password } = req.body;
