@@ -14,65 +14,77 @@
 
 ---
 
-## Architecture
+## Architecture actuelle
 
 ```
-Smartphones (WiFi) → nginx :443 HTTPS → localhost:8080 (Node.js)
+Smartphones (WiFi) → Node.js :8443 HTTPS (TLS natif)
                            ↑
                     Certificat TLS (auto-signé ou Let's Encrypt)
-                    généré/renouvelé automatiquement
-                    persisté dans volume Docker audio-access-certs
+                    généré au 1er démarrage via src/tls.js
+                    persisté dans le volume Docker audio-certs
 ```
 
-> **Pourquoi nginx en network_mode: host ?**  
-> L'app Node.js utilise `network_mode: host` (obligatoire pour le multicast AES67/RTP).  
-> nginx doit être sur le même réseau host pour proxifier vers `localhost:8080`.
+Node.js gère TLS directement — **pas de reverse proxy nginx**. Ce choix simplifie le déploiement et est rendu possible par `network_mode: host` (obligatoire pour le multicast AES67/RTP).
 
 ---
 
-## Génération automatique du certificat
+## Génération automatique du certificat auto-signé
 
-Le certificat est **généré automatiquement au premier démarrage** du container nginx (`nginx/entrypoint.sh`) :
+Le certificat est **généré automatiquement au premier démarrage** si absent du volume `audio-certs` :
 - Validité **10 ans** (3650 jours)
-- Persisté dans le volume Docker `audio-access-certs` — **non régénéré aux redémarrages suivants**
-- Régénération automatique si le cert expire dans moins de 30 jours
-- CN et SAN configurés via la variable `TLS_CN` dans le stack
+- Persisté dans le volume Docker `audio-certs` — **non régénéré aux redémarrages suivants**
+- CN et SAN configurés via la variable `TLS_CN` dans `.env` (défaut : `192.168.100.251`)
 
 **Aucune action manuelle requise** pour la génération.
 
 ---
 
-## 1. Récupérer le certificat généré (pour le distribuer aux appareils)
-
-Après le premier démarrage :
+## 1. Déployer avec Docker Compose
 
 ```bash
-# Copier le certificat depuis le volume Docker
-docker cp audio-access-nginx:/etc/nginx/certs/server.crt ./server.crt
+# Copier et adapter le fichier .env
+cp .env.example .env
+# Éditer .env : ADMIN_PASSWORD, SESSION_SECRET, TLS_CN, PUBLIC_URL
+
+docker compose up -d
 ```
 
-Distribuez ce `server.crt` aux appareils clients (voir section 5).
+Variables clés dans `.env` :
+- `ADMIN_PASSWORD` — mot de passe admin
+- `SESSION_SECRET` — chaîne aléatoire (min 32 chars) : `openssl rand -hex 32`
+- `TLS_CN` — IP ou hostname du serveur sur le réseau salle (ex: `192.168.0.15`)
+- `PUBLIC_URL` — URL HTTPS complète pour le QR code (ex: `https://192.168.0.15:8443`)
+- `MULTICAST_INTERFACE` — IP de l'interface réseau AES67
 
 ---
 
 ## 2. Déployer dans Portainer
 
-Utilisez **`portainer-stack-https.yml`** à la place de `portainer-stack.yml`.
+Utilisez **`portainer-stack.yml`** (sans nginx, TLS Node.js natif).
 
-Ajustez les variables d'environnement :
-- `ADMIN_PASSWORD` — mot de passe admin
-- `SESSION_SECRET` — chaîne aléatoire longue
-- `PUBLIC_URL` — `https://192.168.100.251` (avec https !)
-- `MULTICAST_INTERFACE` — IP de l'interface réseau AES67
+> `portainer-stack-https.yml` est une version obsolète avec architecture nginx — ne pas utiliser.
 
 ---
 
-## 5. Installer le certificat sur les appareils clients
+## 3. Récupérer le certificat généré (appareils préconfigurés)
 
-Pour éviter l'avertissement "Non sécurisé" du navigateur, installez `server.crt` comme **CA de confiance** sur chaque appareil. C'est la bonne pratique RSSI.
+Après le premier démarrage :
+
+```bash
+# Copier le certificat depuis le volume Docker
+docker cp audio-access:/app/certs/server.crt ./server.crt
+```
+
+Distribuez ce `server.crt` aux appareils clients (voir section 4).
+
+---
+
+## 4. Installer le certificat sur les appareils clients
+
+Pour éviter l'avertissement "Non sécurisé", installez `server.crt` comme **CA de confiance** sur chaque appareil.
 
 ### Android (Chrome)
-1. Envoyer `server.crt` sur l'appareil (email, AirDrop, partage réseau)
+1. Envoyer `server.crt` sur l'appareil (email, partage réseau)
 2. **Paramètres → Sécurité → Chiffrement et informations → Installer un certificat → Certificat CA**
 3. Sélectionner `server.crt`
 
@@ -96,19 +108,19 @@ Distribuez `server.crt` via votre solution MDM (Jamf, Intune, etc.) comme profil
 
 ---
 
-## 6. Vérification
+## 5. Vérification
 
 ```bash
-# Tester depuis le serveur
-curl -k https://192.168.100.251/api/health
+# Tester depuis le serveur (sans vérif cert)
+curl -k https://localhost:8443/api/channels
 
 # Tester avec le certificat (doit répondre sans -k)
-curl --cacert /opt/audio-access/certs/server.crt https://192.168.100.251/api/health
+curl --cacert ./server.crt https://192.168.0.15:8443/api/channels
 ```
 
-Logs nginx en temps réel :
+Logs du container en temps réel :
 ```bash
-docker logs -f audio-access-nginx
+docker logs -f audio-access
 ```
 
 ---
@@ -118,17 +130,12 @@ docker logs -f audio-access-nginx
 | Point | Valeur |
 |-------|--------|
 | TLS minimum | 1.2 |
-| Chiffrements | `HIGH:!aNULL:!MD5` |
-| Validité certificat | 825 jours (~2 ans) |
-| HSTS | Désactivé par défaut (activer après déploiement cert sur tous les appareils) |
-| Accès Node.js | `127.0.0.1:8080` uniquement (pas exposé en dehors du host) |
-| Upload max | 512 Mo (fichiers audio) |
-
-Pour activer HSTS (une fois le certificat installé partout) :
-```nginx
-# Dans nginx/audio-access.conf, décommenter :
-add_header Strict-Transport-Security "max-age=31536000" always;
-```
+| Ciphers | ECDHE + AES-GCM / CHACHA20 (ANSSI-compatibles) |
+| Validité certificat auto-signé | 3650 jours (10 ans) |
+| Port HTTPS | 8443 |
+| Accès Node.js | `0.0.0.0:8443` en `network_mode: host` |
+| Upload max | 500 Mo (fichiers audio) |
+| HSTS | Non applicable (certificat auto-signé non reconnu par défaut) |
 
 ---
 
@@ -136,7 +143,7 @@ add_header Strict-Transport-Security "max-age=31536000" always;
 
 ### Principe
 
-Le **DNS challenge** (ACME DNS-01) permet d'obtenir un certificat Let's Encrypt reconnu par tous les navigateurs **sans que le serveur audio soit joignable depuis internet**. La validation se fait en déposant un enregistrement TXT dans le DNS public de ton domaine — le serveur audio reste en LAN fermé.
+Le **DNS challenge** (ACME DNS-01) permet d'obtenir un certificat Let's Encrypt reconnu par tous les navigateurs **sans que le serveur audio soit joignable depuis internet**. La validation se fait en déposant un enregistrement TXT dans le DNS public du domaine — le serveur audio reste en LAN fermé.
 
 ```
 [Machine avec internet]
@@ -145,9 +152,9 @@ Le **DNS challenge** (ACME DNS-01) permet d'obtenir un certificat Let's Encrypt 
             └─ Certificat émis → copié sur le serveur audio LAN
 
 [Salle de spectacle — LAN isolé]
-  Serveur audio (192.168.x.x) ← certificat Let's Encrypt valide
+  Serveur audio (192.168.x.x:8443) ← certificat Let's Encrypt valide
   Routeur WiFi : audio.nom-salle.fr → 192.168.x.x (DNS local)
-  Smartphones BYOD : https://audio.nom-salle.fr → aucun avertissement
+  Smartphones BYOD : https://audio.nom-salle.fr:8443 → aucun avertissement
 ```
 
 ### Prérequis
@@ -178,7 +185,7 @@ dns_ovh_consumer_key = XXXXXXXX
 chmod 600 ~/.secrets/certbot/ovh.ini
 ```
 
-Les credentials API se créent sur le portail de ton registrar (accès DNS en écriture uniquement).
+Les credentials API se créent sur le portail du registrar (accès DNS en écriture uniquement).
 
 ### 3. Obtenir le certificat
 
@@ -189,7 +196,7 @@ certbot certonly \
   -d audio.nom-salle.fr \
   --preferred-challenges dns-01
 
-# Le certificat est généré dans :
+# Certificat généré dans :
 # /etc/letsencrypt/live/audio.nom-salle.fr/fullchain.pem
 # /etc/letsencrypt/live/audio.nom-salle.fr/privkey.pem
 ```
@@ -197,43 +204,52 @@ certbot certonly \
 ### 4. Copier le certificat dans le volume Docker
 
 ```bash
-# Copier vers le volume audio-access-certs
 docker cp /etc/letsencrypt/live/audio.nom-salle.fr/fullchain.pem \
-  audio-access-nginx:/etc/nginx/certs/server.crt
+  audio-access:/app/certs/server.crt
 
 docker cp /etc/letsencrypt/live/audio.nom-salle.fr/privkey.pem \
-  audio-access-nginx:/etc/nginx/certs/server.key
+  audio-access:/app/certs/server.key
 
-docker restart audio-access-nginx
+docker restart audio-access
 ```
 
 ### 5. DNS local dans le routeur WiFi de la salle
 
-Le routeur WiFi doit résoudre `audio.nom-salle.fr` vers l'IP locale du serveur. Configuration selon le modèle de routeur :
+Le routeur WiFi doit résoudre `audio.nom-salle.fr` vers l'IP locale du serveur :
 
 - **dnsmasq** (Raspberry Pi, OpenWrt) : `address=/audio.nom-salle.fr/192.168.x.x`
 - **Routeur professionnel** : entrée DNS statique (host override) dans l'interface admin
-- **Fallback** : distribuer l'IP directe via le QR code (perd le bénéfice du domaine)
+- **Fallback** : distribuer l'IP directe via le QR code (sans bénéfice du domaine)
+
+Mettre à jour `PUBLIC_URL` dans `.env` :
+```
+TLS_CN=audio.nom-salle.fr
+PUBLIC_URL=https://audio.nom-salle.fr:8443
+```
 
 ### 6. Renouvellement (tous les 90 jours)
 
 ```bash
-# Depuis n'importe quelle machine avec internet — pas le serveur audio
+# Depuis n'importe quelle machine avec internet
 certbot renew --dns-ovh --dns-ovh-credentials ~/.secrets/certbot/ovh.ini
 
-# Puis recopier les nouveaux fichiers (étape 4)
-# Automatiser avec un cron :
-0 3 1 * * certbot renew && \
-  docker cp /etc/letsencrypt/live/audio.nom-salle.fr/fullchain.pem \
-    audio-access-nginx:/etc/nginx/certs/server.crt && \
-  docker cp /etc/letsencrypt/live/audio.nom-salle.fr/privkey.pem \
-    audio-access-nginx:/etc/nginx/certs/server.key && \
-  docker restart audio-access-nginx
+# Recopier les fichiers renouvelés et redémarrer
+docker cp /etc/letsencrypt/live/audio.nom-salle.fr/fullchain.pem audio-access:/app/certs/server.crt
+docker cp /etc/letsencrypt/live/audio.nom-salle.fr/privkey.pem audio-access:/app/certs/server.key
+docker restart audio-access
+```
+
+Automatiser avec un cron (mensuel) :
+```bash
+0 3 1 * * certbot renew --dns-ovh --dns-ovh-credentials ~/.secrets/certbot/ovh.ini \
+  && docker cp /etc/letsencrypt/live/audio.nom-salle.fr/fullchain.pem audio-access:/app/certs/server.crt \
+  && docker cp /etc/letsencrypt/live/audio.nom-salle.fr/privkey.pem audio-access:/app/certs/server.key \
+  && docker restart audio-access
 ```
 
 ### Résultat
 
-- QR code → `https://audio.nom-salle.fr` → aucun avertissement sur **tous les smartphones** (iOS, Android, Windows)
+- QR code → `https://audio.nom-salle.fr:8443` → aucun avertissement sur tous les smartphones
 - Certificat reconnu nativement — aucune installation requise côté utilisateur
 - Serveur audio **jamais exposé sur internet**
 - PWA installable, Service Worker actif, WebRTC fonctionnel
