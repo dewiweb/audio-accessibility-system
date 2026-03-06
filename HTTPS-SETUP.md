@@ -1,12 +1,26 @@
-# Configuration HTTPS — Certificat auto-signé (réseau privé)
+# Configuration HTTPS — Stratégies TLS selon le contexte de déploiement
+
+## Choix de la stratégie TLS selon le contexte
+
+| Contexte | Stratégie | Friction utilisateur | Coût |
+|----------|-----------|---------------------|------|
+| **Développement / test** | Certificat auto-signé + `/welcome` | Accepter l'avertissement une fois par appareil | 0€ |
+| **Appareils prêtés, préconfigurés** | Certificat auto-signé + CA installée sur les appareils | Aucune (préconfiguration à l'entrée) | 0€ |
+| **BYOD — smartphones personnels** | **Let's Encrypt via DNS challenge** (recommandé) | **Aucune** | ~10€/an (nom de domaine) |
+
+> **Pourquoi HTTP pur n'est pas une option** : un réseau WiFi de salle de spectacle est accessible à tous les occupants. Sans TLS, le trafic audio est lisible et modifiable par n'importe qui sur le réseau (Wireshark, ARP spoofing). Pour un système d'accessibilité médicale (audiodescription, renforcement malentendants), l'intégrité du contenu est non négociable. De plus, le Service Worker et la PWA exigent HTTPS.
+
+> **Pourquoi une CA auto-hébergée (step-ca) ne résout pas le BYOD** : même avec un serveur ACME local (step-ca, smallstep), le certificat racine doit être installé manuellement sur chaque smartphone personnel — friction identique à l'acceptation manuelle d'un certificat auto-signé.
+
+---
 
 ## Architecture
 
 ```
 Smartphones (WiFi) → nginx :443 HTTPS → localhost:8080 (Node.js)
                            ↑
-                    Certificat auto-signé 10 ans
-                    généré automatiquement au 1er démarrage
+                    Certificat TLS (auto-signé ou Let's Encrypt)
+                    généré/renouvelé automatiquement
                     persisté dans volume Docker audio-access-certs
 ```
 
@@ -115,3 +129,111 @@ Pour activer HSTS (une fois le certificat installé partout) :
 # Dans nginx/audio-access.conf, décommenter :
 add_header Strict-Transport-Security "max-age=31536000" always;
 ```
+
+---
+
+## Production BYOD — Let's Encrypt via DNS challenge
+
+### Principe
+
+Le **DNS challenge** (ACME DNS-01) permet d'obtenir un certificat Let's Encrypt reconnu par tous les navigateurs **sans que le serveur audio soit joignable depuis internet**. La validation se fait en déposant un enregistrement TXT dans le DNS public de ton domaine — le serveur audio reste en LAN fermé.
+
+```
+[Machine avec internet]
+  └─ Certbot DNS challenge → Let's Encrypt CA
+       └─ Dépose TXT _acme-challenge.audio.nom-salle.fr
+            └─ Certificat émis → copié sur le serveur audio LAN
+
+[Salle de spectacle — LAN isolé]
+  Serveur audio (192.168.x.x) ← certificat Let's Encrypt valide
+  Routeur WiFi : audio.nom-salle.fr → 192.168.x.x (DNS local)
+  Smartphones BYOD : https://audio.nom-salle.fr → aucun avertissement
+```
+
+### Prérequis
+
+- Un nom de domaine (~10€/an, ex: OVH, Gandi, Namecheap)
+- Accès à l'API DNS du registrar (pour Certbot)
+- Certbot installé sur n'importe quelle machine avec internet (pas forcément le serveur audio)
+
+### 1. Installer Certbot + plugin DNS
+
+```bash
+# Exemple avec OVH (adapter selon ton registrar)
+pip install certbot certbot-dns-ovh
+
+# Autres plugins disponibles :
+# certbot-dns-cloudflare, certbot-dns-gandi, certbot-dns-namecheap, etc.
+```
+
+### 2. Configurer les credentials DNS
+
+```bash
+# Exemple OVH — créer ~/.secrets/certbot/ovh.ini
+dns_ovh_endpoint = ovh-eu
+dns_ovh_application_key = XXXXXXXX
+dns_ovh_application_secret = XXXXXXXX
+dns_ovh_consumer_key = XXXXXXXX
+
+chmod 600 ~/.secrets/certbot/ovh.ini
+```
+
+Les credentials API se créent sur le portail de ton registrar (accès DNS en écriture uniquement).
+
+### 3. Obtenir le certificat
+
+```bash
+certbot certonly \
+  --dns-ovh \
+  --dns-ovh-credentials ~/.secrets/certbot/ovh.ini \
+  -d audio.nom-salle.fr \
+  --preferred-challenges dns-01
+
+# Le certificat est généré dans :
+# /etc/letsencrypt/live/audio.nom-salle.fr/fullchain.pem
+# /etc/letsencrypt/live/audio.nom-salle.fr/privkey.pem
+```
+
+### 4. Copier le certificat dans le volume Docker
+
+```bash
+# Copier vers le volume audio-access-certs
+docker cp /etc/letsencrypt/live/audio.nom-salle.fr/fullchain.pem \
+  audio-access-nginx:/etc/nginx/certs/server.crt
+
+docker cp /etc/letsencrypt/live/audio.nom-salle.fr/privkey.pem \
+  audio-access-nginx:/etc/nginx/certs/server.key
+
+docker restart audio-access-nginx
+```
+
+### 5. DNS local dans le routeur WiFi de la salle
+
+Le routeur WiFi doit résoudre `audio.nom-salle.fr` vers l'IP locale du serveur. Configuration selon le modèle de routeur :
+
+- **dnsmasq** (Raspberry Pi, OpenWrt) : `address=/audio.nom-salle.fr/192.168.x.x`
+- **Routeur professionnel** : entrée DNS statique (host override) dans l'interface admin
+- **Fallback** : distribuer l'IP directe via le QR code (perd le bénéfice du domaine)
+
+### 6. Renouvellement (tous les 90 jours)
+
+```bash
+# Depuis n'importe quelle machine avec internet — pas le serveur audio
+certbot renew --dns-ovh --dns-ovh-credentials ~/.secrets/certbot/ovh.ini
+
+# Puis recopier les nouveaux fichiers (étape 4)
+# Automatiser avec un cron :
+0 3 1 * * certbot renew && \
+  docker cp /etc/letsencrypt/live/audio.nom-salle.fr/fullchain.pem \
+    audio-access-nginx:/etc/nginx/certs/server.crt && \
+  docker cp /etc/letsencrypt/live/audio.nom-salle.fr/privkey.pem \
+    audio-access-nginx:/etc/nginx/certs/server.key && \
+  docker restart audio-access-nginx
+```
+
+### Résultat
+
+- QR code → `https://audio.nom-salle.fr` → aucun avertissement sur **tous les smartphones** (iOS, Android, Windows)
+- Certificat reconnu nativement — aucune installation requise côté utilisateur
+- Serveur audio **jamais exposé sur internet**
+- PWA installable, Service Worker actif, WebRTC fonctionnel
