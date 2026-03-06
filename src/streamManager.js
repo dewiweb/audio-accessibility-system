@@ -257,7 +257,7 @@ class StreamManager extends EventEmitter {
       LOOP_SEGMENT_DURATION = Math.max(2, Math.min(4, Math.floor(fileDuration / 2)));
       console.log(`[Stream ${channelId}] File duration: ${fileDuration.toFixed(1)}s → hls_time: ${LOOP_SEGMENT_DURATION}s`);
     }
-    const LOOP_LIST_SIZE = 6;
+    const LOOP_LIST_SIZE = 10;
 
     const outputOptions = [
       '-f hls',

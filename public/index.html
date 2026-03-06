@@ -725,22 +725,9 @@
       });
     });
     let networkErrorCount = 0;
-    let stallCount = 0;
     hls.on(Hls.Events.ERROR, (event, data) => {
       console.error('[HLS Error]', data.type, data.details, 'fatal:', data.fatal, 'url:', data.url);
-      if (!data.fatal) {
-        if (data.details === Hls.ErrorDetails.BUFFER_STALLED_ERROR && isLoopFile) {
-          stallCount++;
-          if (stallCount <= 3) {
-            hls.startLoad();
-          } else {
-            hls.destroy();
-            stallCount = 0;
-            setTimeout(() => startHls(url, ch), 1000);
-          }
-        }
-        return;
-      }
+      if (!data.fatal) return;
       if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
         networkErrorCount++;
         if (networkErrorCount <= 3) {
