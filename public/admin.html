@@ -595,7 +595,10 @@
         <!-- SYSTEM VIEW -->
         <div id="view-system" style="display:none">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-            <span style="font-size:13px;color:var(--text3)" id="sys-last-update">—</span>
+            <div style="display:flex;align-items:center;gap:12px">
+              <button class="btn-sm btn-back" id="btn-back-from-system">← Retour</button>
+              <span style="font-size:13px;color:var(--text3)" id="sys-last-update">—</span>
+            </div>
             <button class="sys-refresh-btn" id="sys-refresh-btn">↻ Actualiser</button>
           </div>
 
@@ -2535,19 +2538,31 @@ function hideSystemView() {
   document.getElementById('view-system').style.display = 'none';
   clearInterval(_sysRefreshTimer);
   _sysRefreshTimer = null;
+  
+  // Restaurer la vue précédente (overview ou édition de canal)
+  if (selectedChannelId) {
+    // On était en édition de canal, restaurer cette vue
+    document.getElementById('view-overview').style.display = 'none';
+    document.getElementById('view-channel').style.display = 'block';
+    document.getElementById('content-title').textContent = selectedChannelId ? allChannels.find(c => c.id === selectedChannelId)?.name || 'Canal' : 'Vue d\'ensemble';
+  } else {
+    // On était en vue d'ensemble, restaurer cette vue
+    document.getElementById('view-overview').style.display = '';
+    document.getElementById('view-channel').style.display = 'none';
+    document.getElementById('content-title').textContent = 'Vue d\'ensemble';
+  }
 }
 
 document.getElementById('btn-system').addEventListener('click', () => {
   if (_sysViewOpen) {
     hideSystemView();
-    document.getElementById('view-overview').style.display = '';
-    document.getElementById('content-title').textContent = 'Vue d\'ensemble';
   } else {
     showSystemView();
   }
 });
 
 document.getElementById('sys-refresh-btn').addEventListener('click', refreshSystemView);
+document.getElementById('btn-back-from-system').addEventListener('click', hideSystemView);
 
 // Fermer la vue système si on clique sur un canal dans la sidebar
 const _origShowChannel = typeof showChannel === 'function' ? showChannel : null;
