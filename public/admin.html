@@ -496,6 +496,16 @@
     .sys-refresh-btn:hover { background: var(--surface); color: var(--text); }
     .sys-uptime { font-size: 13px; color: var(--text2); margin-top: 4px; }
     .sys-view-wide { grid-column: 1 / -1; }
+    
+    /* Navigation améliorée */
+    .content-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+    .content-header-left { flex: 1; }
+    .content-header-right { display: flex; align-items: center; gap: 12px; }
+    .breadcrumbs { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+    .breadcrumb-item { color: var(--text2); cursor: pointer; transition: color 0.2s; }
+    .breadcrumb-item:hover { color: var(--text); }
+    .breadcrumb-item.active { color: var(--accent); font-weight: 600; }
+    .breadcrumb-separator { color: var(--text3); margin: 0 4px; }
   </style>
 </head>
 <body>
@@ -542,8 +552,15 @@
     <!-- MAIN -->
     <div class="main-content">
       <div class="content-header">
-        <h2 id="content-title">Vue d'ensemble</h2>
-        <div id="content-header-actions"></div>
+        <div class="content-header-left">
+          <div class="breadcrumbs" id="breadcrumbs">
+            <span class="breadcrumb-item active" data-view="overview">Vue d'ensemble</span>
+          </div>
+        </div>
+        <div class="content-header-right">
+          <button class="btn-sm btn-ghost" id="btn-overview" style="display:none">← Vue d'ensemble</button>
+          <div id="content-header-actions"></div>
+        </div>
       </div>
 
       <div class="content-scroll" id="content-scroll">
@@ -1037,8 +1054,38 @@ function selectChannel(id) {
   if (!ch) return;
   document.getElementById('view-overview').classList.add('hidden-screen');
   document.getElementById('view-channel').classList.add('visible');
+  document.getElementById('view-system').style.display = 'none';
   document.getElementById('content-title').textContent = ch.name;
+  updateBreadcrumbs('channel', ch.name);
   renderChannelDetail(ch);
+}
+
+function updateBreadcrumbs(view, channelName = null) {
+  const breadcrumbs = document.getElementById('breadcrumbs');
+  const btnOverview = document.getElementById('btn-overview');
+  
+  switch (view) {
+    case 'overview':
+      breadcrumbs.innerHTML = '<span class="breadcrumb-item active" data-view="overview">Vue d\'ensemble</span>';
+      btnOverview.style.display = 'none';
+      break;
+    case 'channel':
+      breadcrumbs.innerHTML = `
+        <span class="breadcrumb-item" data-view="overview">Vue d\'ensemble</span>
+        <span class="breadcrumb-separator">›</span>
+        <span class="breadcrumb-item active">${channelName || 'Canal'}</span>
+      `;
+      btnOverview.style.display = 'block';
+      break;
+    case 'system':
+      breadcrumbs.innerHTML = `
+        <span class="breadcrumb-item" data-view="overview">Vue d\'ensemble</span>
+        <span class="breadcrumb-separator">›</span>
+        <span class="breadcrumb-item active">Système</span>
+      `;
+      btnOverview.style.display = 'block';
+      break;
+  }
 }
 
 function showOverview() {
@@ -1046,7 +1093,9 @@ function showOverview() {
   renderSidebar();
   document.getElementById('view-overview').classList.remove('hidden-screen');
   document.getElementById('view-channel').classList.remove('visible');
+  document.getElementById('view-system').style.display = 'none';
   document.getElementById('content-title').textContent = 'Vue d\'ensemble';
+  updateBreadcrumbs('overview');
 }
 
 function renderChannelDetail(ch) {
@@ -2620,6 +2669,7 @@ function showSystemView() {
   document.getElementById('view-system').style.display = 'block';
   document.getElementById('content-title').textContent = 'Système';
   document.getElementById('content-header-actions').innerHTML = '';
+  updateBreadcrumbs('system');
   refreshSystemView();
   _sysRefreshTimer = setInterval(refreshSystemView, 15000);
 }
@@ -2654,6 +2704,20 @@ document.getElementById('btn-system').addEventListener('click', () => {
 
 document.getElementById('sys-refresh-btn').addEventListener('click', refreshSystemView);
 document.getElementById('btn-back-from-system').addEventListener('click', hideSystemView);
+
+// Breadcrumbs navigation
+document.addEventListener('click', (e) => {
+  const breadcrumb = e.target.closest('.breadcrumb-item');
+  if (breadcrumb && !breadcrumb.classList.contains('active')) {
+    const view = breadcrumb.dataset.view;
+    if (view === 'overview') {
+      showOverview();
+    }
+  }
+});
+
+// Bouton retour vue d'ensemble
+document.getElementById('btn-overview').addEventListener('click', showOverview);
 
 // WebSocket pour mises à jour en temps réel
 let adminWs = null;
