@@ -166,11 +166,11 @@ function updateBreadcrumbs(view, channelName) {
     bc.innerHTML = '<span class="breadcrumb-item active" data-view="overview">Vue d\'ensemble</span>';
   } else if (view === ViewState.VIEWS.CHANNEL) {
     bc.innerHTML = `<span class="breadcrumb-item" data-view="overview">Vue d'ensemble</span>
-      <span class="breadcrumb-sep">›</span>
+      <span class="breadcrumb-separator">›</span>
       <span class="breadcrumb-item active">${escHtml(channelName || '')}</span>`;
   } else if (view === ViewState.VIEWS.SYSTEM) {
     bc.innerHTML = `<span class="breadcrumb-item" data-view="overview">Vue d'ensemble</span>
-      <span class="breadcrumb-sep">›</span>
+      <span class="breadcrumb-separator">›</span>
       <span class="breadcrumb-item active">Système</span>`;
   }
 }
@@ -179,6 +179,10 @@ function updateHeaderActions() {
   const btnSystem = document.getElementById('btn-system');
   if (btnSystem) {
     btnSystem.classList.toggle('active', ViewState.current === ViewState.VIEWS.SYSTEM);
+  }
+  const btnOverview = document.getElementById('btn-overview');
+  if (btnOverview) {
+    btnOverview.classList.toggle('hidden-screen', ViewState.current === ViewState.VIEWS.OVERVIEW);
   }
 }
 
@@ -704,7 +708,7 @@ function connectAdminWs() {
     console.log('[Admin] WebSocket connecté');
     const wsDot   = document.getElementById('ws-dot');
     const wsLabel = document.getElementById('ws-label');
-    if (wsDot)   wsDot.classList.add('connected');
+    if (wsDot)   wsDot.classList.add('ok');
     if (wsLabel) wsLabel.textContent = 'Connecté';
     clearTimeout(adminWsReconnectTimer);
   };
@@ -722,7 +726,7 @@ function connectAdminWs() {
     console.log('[Admin] WebSocket déconnecté');
     const wsDot   = document.getElementById('ws-dot');
     const wsLabel = document.getElementById('ws-label');
-    if (wsDot)   wsDot.classList.remove('connected');
+    if (wsDot)   wsDot.classList.remove('ok');
     if (wsLabel) wsLabel.textContent = 'Reconnexion...';
     adminWsReconnectTimer = setTimeout(connectAdminWs, 3000);
   };
