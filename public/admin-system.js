@@ -372,7 +372,7 @@ async function loadAudioSources() {
 
 async function loadVersion() {
   try {
-    const r = await apiFetch('/admin/version');
+    const r = await apiFetch('/api/admin/version');
     const data = await r.json();
     const versionEl = document.getElementById('sys-version');
     if (versionEl) {
@@ -383,7 +383,7 @@ async function loadVersion() {
 
 async function loadSystemConfig() {
   try {
-    const r = await apiFetch('/admin/config');
+    const r = await apiFetch('/api/admin/network/config');
     const data = await r.json();
     const nodeEl = document.getElementById('sys-node');
     if (nodeEl) nodeEl.textContent = data.nodeVersion || '—';

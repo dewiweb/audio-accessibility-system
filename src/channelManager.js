@@ -10,6 +10,7 @@ class ChannelManager extends EventEmitter {
     super();
     this.channels = new Map();
     this.listeners = new Map();
+    this._saveTimer = null;
     this._load();
   }
 
@@ -39,6 +40,14 @@ class ChannelManager extends EventEmitter {
     } catch (e) {
       console.warn('[ChannelManager] Could not save channels:', e.message);
     }
+  }
+
+  _saveLazy() {
+    if (this._saveTimer) return;
+    this._saveTimer = setTimeout(() => {
+      this._saveTimer = null;
+      this._save();
+    }, 2000);
   }
 
   createChannel({ name, description, language, icon, color, source }) {
@@ -110,7 +119,8 @@ class ChannelManager extends EventEmitter {
     if (!this.listeners.has(channelId)) this.listeners.set(channelId, new Set());
     this.listeners.get(channelId).add(listenerId);
     const count = this.listeners.get(channelId).size;
-    this.updateChannel(channelId, { listenerCount: count });
+    const ch = this.channels.get(channelId);
+    if (ch) { this.channels.set(channelId, { ...ch, listenerCount: count }); this._saveLazy(); }
     this.emit('listener:joined', { channelId, listenerId, count });
   }
 
@@ -118,7 +128,8 @@ class ChannelManager extends EventEmitter {
     if (!this.listeners.has(channelId)) return;
     this.listeners.get(channelId).delete(listenerId);
     const count = this.listeners.get(channelId).size;
-    this.updateChannel(channelId, { listenerCount: count });
+    const ch = this.channels.get(channelId);
+    if (ch) { this.channels.set(channelId, { ...ch, listenerCount: count }); this._saveLazy(); }
     this.emit('listener:left', { channelId, listenerId, count });
   }
 

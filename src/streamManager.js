@@ -521,22 +521,6 @@ class StreamManager extends EventEmitter {
           input: source.path,
           inputOptions: [],
         };
-      case 'testtone': {
-        const sineStream = generateSineStream(source.frequency || 440, config.audio.sampleRate);
-        return {
-          input: sineStream,
-          stream: sineStream,
-          inputOptions: ['-f s16le', `-ar ${config.audio.sampleRate}`, '-ac 2'],
-        };
-      }
-      case 'silence': {
-        const silenceStream = generateSineStream(0, config.audio.sampleRate);
-        return {
-          input: silenceStream,
-          stream: silenceStream,
-          inputOptions: ['-f s16le', `-ar ${config.audio.sampleRate}`, '-ac 2'],
-        };
-      }
       default:
         throw new Error(`Unknown source type: ${source.type}`);
     }
