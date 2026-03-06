@@ -697,6 +697,7 @@
 
   function startHls(url, ch) {
     if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+    audio.loop = false;
     const isVod = ch && ch.sourceType === 'file' && !ch.sourceLoop;
     const isLoopFile = ch && ch.sourceType === 'file' && ch.sourceLoop;
     const baseConfig = {
