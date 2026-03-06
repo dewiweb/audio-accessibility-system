@@ -678,6 +678,18 @@
                 <tbody id="sys-iface-body"><tr><td colspan="5" style="color:var(--text3);padding-top:8px">Chargement…</td></tr></tbody>
               </table>
             </div>
+
+            <!-- Streams actifs -->
+            <div class="sys-card sys-view-wide">
+              <div class="sys-card-title">🎙 Streams actifs</div>
+              <div id="sys-streams-body" style="color:var(--text3);font-size:13px">Chargement…</div>
+            </div>
+
+            <!-- Sources audio -->
+            <div class="sys-card sys-view-wide">
+              <div class="sys-card-title">🎚 Sources audio système (ALSA / PulseAudio)</div>
+              <div id="sys-audio-sources-body" style="color:var(--text3);font-size:13px">Chargement…</div>
+            </div>
           </div>
         </div>
       </div>
@@ -976,7 +988,19 @@ async function loadQr() {
     if (!r.ok) return;
     const data = await r.json();
     document.getElementById('qr-img').src = data.qrcode;
-    document.getElementById('qr-url').textContent = data.url;
+    const urlEl = document.getElementById('qr-url');
+    urlEl.textContent = data.url;
+    // En mode double interface : indiquer que le QR pointe sur le WiFi public
+    if (data.isDualNetwork && data.adminUrl) {
+      const note = document.createElement('div');
+      note.style.cssText = 'font-size:11px;color:var(--text3);margin-top:4px';
+      note.textContent = '🌐 Mode double interface — QR code pointe sur le réseau public';
+      urlEl.parentNode.insertBefore(note, urlEl.nextSibling);
+      const adminNote = document.createElement('div');
+      adminNote.style.cssText = 'font-size:11px;color:var(--text3);margin-top:2px';
+      adminNote.textContent = 'URL admin régie : ' + data.adminUrl;
+      note.parentNode.insertBefore(adminNote, note.nextSibling);
+    }
   } catch (e) {}
 }
 
@@ -2348,8 +2372,81 @@ async function loadNetworkInterfaces() {
   }
 }
 
+async function loadActiveStreams() {
+  try {
+    const data = await apiFetch('/api/admin/stats');
+    const el = document.getElementById('sys-streams-body');
+    const streams = data.activeStreams || [];
+    if (!streams.length) {
+      el.textContent = 'Aucun stream actif.';
+      return;
+    }
+    const fmtAge = (iso) => {
+      if (!iso) return '—';
+      const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+      if (s < 60) return s + 's';
+      if (s < 3600) return Math.floor(s / 60) + 'min';
+      return Math.floor(s / 3600) + 'h ' + Math.floor((s % 3600) / 60) + 'min';
+    };
+    el.innerHTML = `<table class="iface-table"><thead><tr>
+      <th>Canal</th><th>ID</th><th>Type source</th><th>Statut</th><th>Actif depuis</th>
+    </tr></thead><tbody>` +
+    streams.map(s => {
+      const statusText  = s.isVod ? 'VOD prêt' : 'En direct';
+      const statusColor = s.isVod ? 'color:var(--accent2)' : 'color:var(--green)';
+      return `<tr>
+        <td><span class="iface-name">${s.name || s.channelId}</span></td>
+        <td style="color:var(--text3);font-size:12px;font-family:monospace">${s.channelId}</td>
+        <td style="color:var(--text2)">${s.sourceType || '—'}</td>
+        <td style="${statusColor};font-weight:600">${statusText}</td>
+        <td style="color:var(--text3)">${fmtAge(s.startedAt)}</td>
+      </tr>`;
+    }).join('') + '</tbody></table>';
+  } catch (e) {
+    const el = document.getElementById('sys-streams-body');
+    if (el) el.innerHTML = `<span style="color:var(--red)">Erreur : ${e.message}</span>`;
+  }
+}
+
+async function loadAudioSources() {
+  try {
+    const data = await apiFetch('/api/admin/sources/list');
+    const el = document.getElementById('sys-audio-sources-body');
+    const alsa = data.alsa || [];
+    const pulse = data.pulse || [];
+    if (!alsa.length && !pulse.length) {
+      el.textContent = 'Aucune source audio détectée (ALSA / PulseAudio).';
+      return;
+    }
+    let html = '';
+    if (alsa.length) {
+      html += `<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:8px">ALSA</div>`;
+      html += `<table class="iface-table" style="margin-bottom:14px"><thead><tr>
+        <th>Carte</th><th>Périphérique</th><th>Nom</th><th>Adresse FFmpeg</th>
+      </tr></thead><tbody>`;
+      html += alsa.map(d => `<tr>
+        <td style="color:var(--text2)">${d.card}</td>
+        <td style="color:var(--text2)">${d.device}</td>
+        <td><span class="iface-name">${d.name}</span></td>
+        <td style="font-family:monospace;font-size:12px;color:var(--accent2)">hw:${d.card},${d.device}</td>
+      </tr>`).join('');
+      html += '</tbody></table>';
+    }
+    if (pulse.length) {
+      html += `<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:8px">PulseAudio</div>`;
+      html += `<table class="iface-table"><thead><tr><th>Périphérique</th></tr></thead><tbody>`;
+      html += pulse.map(d => `<tr><td style="font-family:monospace;font-size:12px;color:var(--accent2)">${d.device}</td></tr>`).join('');
+      html += '</tbody></table>';
+    }
+    el.innerHTML = html;
+  } catch (e) {
+    const el = document.getElementById('sys-audio-sources-body');
+    if (el) el.innerHTML = `<span style="color:var(--red)">Erreur : ${e.message}</span>`;
+  }
+}
+
 async function refreshSystemView() {
-  await Promise.all([loadSystemInfo(), loadNetworkConfig(), loadNetworkInterfaces()]);
+  await Promise.all([loadSystemInfo(), loadNetworkConfig(), loadNetworkInterfaces(), loadActiveStreams(), loadAudioSources()]);
 }
 
 function showSystemView() {

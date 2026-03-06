@@ -573,7 +573,14 @@ class StreamManager extends EventEmitter {
   getActiveStreams() {
     const result = [];
     for (const [channelId, stream] of this.activeStreams) {
-      result.push({ channelId, source: stream.source, startedAt: stream.startedAt });
+      const ch = channelManager.getChannel(channelId);
+      result.push({
+        channelId,
+        name: ch?.name || channelId,
+        sourceType: stream.source?.type || 'unknown',
+        isVod: stream.source?.type === 'file' && stream.proc === null,
+        startedAt: stream.startedAt,
+      });
     }
     return result;
   }

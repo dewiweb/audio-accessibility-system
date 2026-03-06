@@ -117,13 +117,21 @@ router.get('/channels/:id', (req, res) => {
 
 router.get('/qrcode', async (req, res) => {
   try {
-    const url = config.publicUrl;
+    // En mode double interface, le QR code pointe sur l'URL WiFi public (écoute)
+    // sinon sur PUBLIC_URL (mode single-interface)
+    const url = process.env.PUBLIC_LISTENER_URL || config.publicUrl;
+    const adminUrl = config.publicUrl;
     const qr = await QRCode.toDataURL(url, {
       width: 300,
       margin: 2,
       color: { dark: '#1e1b4b', light: '#ffffff' },
     });
-    res.json({ url, qrcode: qr });
+    res.json({
+      url,
+      adminUrl: adminUrl !== url ? adminUrl : null,
+      isDualNetwork: url !== adminUrl,
+      qrcode: qr,
+    });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
