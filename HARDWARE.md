@@ -2,10 +2,17 @@
 
 ## Contexte de charge
 
-- 450 smartphones en lecture HLS simultanée
-- Segments de 1s → chaque client fait ~1 requête HTTPS/s par canal
-- 4–6 canaux possibles en simultané → jusqu'à ~600–700 requêtes HTTPS/s au pic
-- Flux TLS keep-alive configuré (65s) → réutilisation des connexions, facteur ×5–10 d'allègement
+Le système utilise deux modes de diffusion en parallèle :
+
+**Mode WebRTC (AES67 live — prioritaire)**
+- FFmpeg → RTSP → MediaMTX → WHEP navigateur (~100ms latence)
+- MediaMTX ouvre une connexion DTLS/SRTP par client → charge CPU linéaire
+- 450 clients × 4–6 canaux WebRTC = charge DTLS significative (voir CPU ci-dessous)
+
+**Mode HLS (fallback + fichiers audio)**
+- 450 smartphones × 1 requête HTTPS/s par canal
+- 4–6 canaux possibles → jusqu'à ~600–700 requêtes HTTPS/s au pic
+- Keep-alive TLS configuré (65s) → réutilisation connexions, facteur ×5–10 d'allègement
 
 ---
 
@@ -13,13 +20,15 @@
 
 | Composant | Recommandation | Justification |
 |-----------|----------------|---------------|
-| CPU | 8 cœurs (ex: Intel i7-12700 ou AMD Ryzen 7 5700G) | FFmpeg multicanal + Node.js HTTPS |
-| RAM | 16 Go | Buffers HLS, segments en cache, WS 450 clients |
-| Réseau | 2× 1 GbE (LACP si carte dispo) ou 1× 2.5 GbE | ~450 × 128 kbps = ~58 Mbps audio + overhead TLS |
-| Stockage | SSD NVMe 256 Go | Écriture/lecture segments HLS à haute fréquence |
+| CPU | 8 cœurs (ex: Intel i7-12700 ou AMD Ryzen 7 5700G) | DTLS MediaMTX 450 clients + FFmpeg multicanal + Node.js |
+| RAM | 16 Go | MediaMTX ~50 Mo/canal, FFmpeg ~30 Mo/canal, Node.js ~200 Mo, WS 450 clients |
+| Réseau | **2 interfaces réseau distinctes** (voir topologie) | Interface régie (AES67) séparée interface WiFi public |
+| Stockage | SSD NVMe 64 Go minimum | Segments HLS fallback, logs, uploads audio |
 | OS | Ubuntu Server 24.04 LTS | Base Docker stable, support long terme |
 
-Exemples de machines open-source friendly : HP EliteDesk 800 G6, Dell OptiPlex 7090, ou mini-PC type Beelink SER7 (Ryzen 7 7840HS) — suffisants pour ce cas d'usage.
+> ⚠️ **CPU critique** : MediaMTX gère le chiffrement DTLS de chaque connexion WebRTC. À 450 clients simultanés, prévoir un i7 8 cœurs minimum. Un Raspberry Pi ou équivalent ARM basse consommation est **insuffisant**.
+
+Exemples validés : HP EliteDesk 800 G6, Dell OptiPlex 7090, mini-PC **Beelink SER7** (Ryzen 7 7840HS) — silencieux, fanless possible, rack-mountable avec adaptateur.
 
 ---
 
@@ -77,14 +86,39 @@ Serveur Docker ──── Switch PoE géré ──── AP WiFi ×8-10
 
 ---
 
-## Câblage & switch
+## Switch & câblage
 
-- **Switch géré L2** (ex: TP-Link TL-SG2210P, Netgear GS308E) — firmware open-source possible sur certains modèles
+- **Switch géré L2** avec **IGMP snooping obligatoire** — sans ça, le multicast AES67 flood tout le réseau et sature les AP WiFi
+  - Recommandé : **Cisco SG350**, **Netgear M4250** (série AV), TP-Link TL-SG2210P
 - **PoE+ (802.3at)** pour alimenter les AP sans bloc secteur
 - **VLANs** :
-  - VLAN 10 = régie / AES67
-  - VLAN 20 = WiFi auditeurs
+  - VLAN 10 = régie / AES67 (isolé, pas d'accès WiFi)
+  - VLAN 20 = WiFi auditeurs (accès serveur uniquement, client isolation activé)
   - VLAN 30 = admin
+
+> ⚠️ **IGMP snooping** : sans cette fonctionnalité activée sur le switch, les paquets RTP multicast AES67 (1000 paquets/s par canal) sont broadcastés sur tous les ports, y compris les AP WiFi — ce qui dégrade immédiatement la qualité audio pour tous les auditeurs.
+
+---
+
+## Smartphones prêtés à l'entrée
+
+### Compatibilité WebRTC
+- **Android 10+** avec Chrome — WebRTC optimal
+- **iPhone 12+ / iOS 15.1+** avec Safari — WebRTC stable
+- Éviter les tablettes Android <2019 — WebRTC parfois instable
+
+### Certificat TLS — point bloquant
+Le serveur utilise un certificat auto-signé. Sur smartphone non préconfiguré :
+- Le navigateur affiche un avertissement HTTPS
+- **WebRTC peut échouer silencieusement sur iOS** si le certificat n'est pas approuvé
+
+**Solutions par ordre de préférence :**
+
+1. **CA interne installée sur les appareils prêtés** — générer un certificat racine, l'installer en CA de confiance via MDM (Mobile Device Management) avant distribution. Solution la plus propre.
+2. **Let's Encrypt avec domaine DNS local** — si un serveur DNS interne est disponible, un certificat valide publiquement élimine le problème.
+3. **Acceptation manuelle à l'entrée** — procédure guidée sur écran d'accueil avant distribution du smartphone (solution de dépannage uniquement).
+
+> Le fichier `HTTPS-SETUP.md` documente la génération du certificat auto-signé avec SAN.
 
 ---
 
