@@ -653,6 +653,7 @@
             <!-- Infos app -->
             <div class="sys-card">
               <div class="sys-card-title">⚙ Application</div>
+              <div class="sys-metric"><span class="sys-metric-label">Version</span><span class="sys-metric-value" id="sys-version">—</span></div>
               <div class="sys-metric"><span class="sys-metric-label">Node.js</span><span class="sys-metric-value" id="sys-node">—</span></div>
               <div class="sys-metric"><span class="sys-metric-label">Plateforme</span><span class="sys-metric-value" id="sys-platform">—</span></div>
               <div class="sys-metric"><span class="sys-metric-label">Environnement</span><span class="sys-metric-value" id="sys-env">—</span></div>
@@ -2518,8 +2519,28 @@ async function loadAudioSources() {
   }
 }
 
+async function loadVersion() {
+  try {
+    const r = await apiFetch('/admin/version');
+    const data = await r.json();
+    const versionEl = document.getElementById('sys-version');
+    if (versionEl) {
+      versionEl.innerHTML = `v${data.version} <span style="color:var(--text3);font-size:11px">(Node ${data.nodeVersion})</span>`;
+    }
+  } catch (e) {
+    console.warn('Erreur chargement version:', e);
+  }
+}
+
 async function refreshSystemView() {
-  await Promise.all([loadSystemInfo(), loadNetworkConfig(), loadNetworkInterfaces(), loadActiveStreams(), loadAudioSources()]);
+  await Promise.all([
+    loadSystemInfo(), 
+    loadNetworkConfig(), 
+    loadNetworkInterfaces(), 
+    loadActiveStreams(), 
+    loadAudioSources(),
+    loadVersion()
+  ]);
 }
 
 function showSystemView() {

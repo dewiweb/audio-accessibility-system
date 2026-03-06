@@ -422,6 +422,23 @@ router.get('/admin/network/config', adminLimiter, requireAdmin, (req, res) => {
   });
 });
 
+// Version du système
+router.get('/admin/version', requireAdmin, (req, res) => {
+  try {
+    const packageJson = require('../../package.json');
+    res.json({
+      version: packageJson.version,
+      name: packageJson.name,
+      description: packageJson.description,
+      nodeVersion: process.version,
+      uptime: process.uptime(),
+      startedAt: new Date(Date.now() - process.uptime() * 1000).toISOString()
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'Unable to read version' });
+  }
+});
+
 // Login : seul endpoint qui accepte le mot de passe — retourne un token HMAC signé
 router.post('/admin/auth', authLimiter, async (req, res) => {
   const { password } = req.body;
