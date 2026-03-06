@@ -149,7 +149,8 @@ morgan.token('anon-ip', (req) => {
 });
 const logFormat = ':anon-ip :method :url :status :res[content-length] - :response-time ms';
 app.use(morgan(logFormat, {
-  skip: (req) => req.path.startsWith('/hls/') && req.path.endsWith('.ts'),
+  // Skip HLS segments (trop verbeux avec 200 clients) et WS (token admin en query string)
+  skip: (req) => (req.path.startsWith('/hls/') && req.path.endsWith('.ts')) || req.path === '/ws',
 }));
 
 app.use(express.json({ limit: '1mb' }));
@@ -262,7 +263,7 @@ if (isDualNetwork) {
     res.setHeader('Content-Security-Policy', csp);
     next();
   });
-  publicApp.use(morgan(logFormat, { skip: (req) => req.path.startsWith('/hls/') && req.path.endsWith('.ts') }));
+  publicApp.use(morgan(logFormat, { skip: (req) => (req.path.startsWith('/hls/') && req.path.endsWith('.ts')) || req.path === '/ws' }));
   publicApp.use(express.json({ limit: '1mb' }));
   publicApp.use(express.urlencoded({ extended: true, limit: '1mb' }));
   publicApp.use(express.static(config.paths.public, { index: false }));
@@ -276,10 +277,12 @@ if (isDualNetwork) {
     }
     next();
   }, express.static(config.paths.hlsOutput));
-  // API publique uniquement (pas de routes admin)
+  // Bloquer toutes les routes /api/admin/* sur l'interface publique (defense in depth)
+  publicApp.all('/api/admin/*', (req, res) => res.status(403).json({ error: 'Admin API not available on public interface' }));
+  // API publique uniquement (/api/channels, /api/qrcode)
   publicApp.use('/api', apiRoutes);
   publicApp.get('/', serveHtmlWithNonce('index.html'));
-  // Bloquer /admin sur l'interface publique
+  // Bloquer /admin (page HTML) sur l'interface publique
   publicApp.get('/admin', (req, res) => res.status(403).json({ error: 'Admin not available on public interface' }));
   publicApp.use((req, res) => res.status(404).json({ error: 'Not found' }));
   publicApp.use((err, req, res, next) => {

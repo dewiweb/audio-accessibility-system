@@ -40,8 +40,9 @@ module.exports = {
   },
   audio: {
     ffmpegPath: process.env.FFMPEG_PATH || 'ffmpeg',
-    hlsSegmentDuration: parseInt(process.env.HLS_SEGMENT_DURATION) || 1,
-    hlsListSize: parseInt(process.env.HLS_LIST_SIZE) || 3,
+    // 4s par défaut : 50 req/s pour 200 clients au lieu de 200 req/s avec 1s
+    hlsSegmentDuration: parseInt(process.env.HLS_SEGMENT_DURATION) || 4,
+    hlsListSize: parseInt(process.env.HLS_LIST_SIZE) || 4,
     sampleRate: parseInt(process.env.AUDIO_SAMPLE_RATE) || 48000,
     bitrate: process.env.AUDIO_BITRATE || '128k',
     // AES67/RTP buffer in milliseconds (compensates network jitter)
@@ -54,5 +55,9 @@ module.exports = {
     uploads: process.env.UPLOAD_DIR || path.join(__dirname, '../uploads'),
     public: path.join(__dirname, '../public'),
   },
-  publicUrl: process.env.PUBLIC_URL || `http://localhost:${process.env.PORT || 3000}`,
+  // Priorité : PUBLIC_URL explicite, sinon https si HTTPS_PORT défini, sinon http (dev)
+  publicUrl: process.env.PUBLIC_URL ||
+    (process.env.HTTPS_PORT
+      ? `https://localhost:${process.env.HTTPS_PORT}`
+      : `http://localhost:${process.env.PORT || 3000}`),
 };
