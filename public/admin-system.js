@@ -563,7 +563,6 @@ function handleAdminWsMessage(msg) {
       if (typeof updateStats === 'function') updateStats(msg.data || {});
       break;
     case 'connected':
-      if (typeof loadChannels === 'function') loadChannels();
       break;
   }
 }
