@@ -141,31 +141,13 @@ function renderChannelDetail(ch) {
         </div>
         <div class="form-row ${(ch.source?.channels||2)<=2?'channel-map-row-hidden':''}" id="edit-channel-map-row">
           <label class="form-label" for="edit-aes67-channelmap">Paire stéréo à extraire</label>
-          <select class="form-input" id="edit-aes67-channelmap">
-            <option value="">— tous les canaux (mix) —</option>
-            ${(function(){
-              const n = ch.source?.channels || 2;
-              const cur = ch.source?.channelMap ? ch.source.channelMap.join(',') : '';
-              let opts = '';
-              for (let i = 1; i < n; i += 2) {
-                const v = i+','+(i+1);
-                opts += `<option value="${v}" ${cur === v ? 'selected' : ''}>Canaux ${i} / ${i+1}</option>`;
-              }
-              return opts;
-            })()}
-          </select>
-          <div class="src-hint-grey">Sélectionnez quelle paire de canaux mono du flux sera envoyée en stéréo L/R</div>
+          <select class="form-input" id="edit-aes67-channelmap"></select>
+          <div class="src-hint-grey">Choisissez la paire L/R à extraire, ou laissez sur <em>mix global</em> pour downmixer tous les canaux</div>
         </div>
-        <div class="form-row ${(ch.source?.channels||2)<=2?'channel-map-row-hidden':''}" id="downmix-row-edit">
-          <label class="form-label" for="edit-aes67-downmix">Downmix vers stéréo</label>
-          <select class="form-input" id="edit-aes67-downmix">
-            <option value="" ${!ch.source?.downmix?'selected':''}>— pas de traitement (flux déjà stéréo) —</option>
-            <option value="mono-to-stereo" ${ch.source?.downmix==='mono-to-stereo'?'selected':''}>Mono → Stéréo — audiodescription (voix dupliquée L+R)</option>
-            <option value="stereo" ${ch.source?.downmix==='stereo'?'selected':''}>Stéréo standard (ITU-R BS.775) — downmix 5.1/7.1</option>
-            <option value="stereo-loud" ${ch.source?.downmix==='stereo-loud'?'selected':''}>Stéréo renforcée — malentendants (LFE + surround boostés)</option>
-            <option value="binaural" ${ch.source?.downmix==='binaural'?'selected':''}>Binaural HRTF — rendu 3D casque</option>
-          </select>
-          <div class="src-hint-grey">Audiodescription : choisir <b>Mono → Stéréo</b> · 5.1/7.1 : choisir <b>Stéréo renforcée</b> ou standard</div>
+        <div class="form-row channel-map-row-hidden" id="downmix-row-edit">
+          <label class="form-label" for="edit-aes67-downmix">Traitement stéréo</label>
+          <select class="form-input" id="edit-aes67-downmix"></select>
+          <div class="src-hint-grey">Audiodescription : <b>Mono → Stéréo</b> · 5.1/7.1 : <b>Stéréo renforcée</b> ou standard</div>
         </div>
         <div class="form-row">
           <label class="form-label" for="edit-aes67-gain">Gain (dB) <span class="label-opt">— 0 = pas de changement</span></label>
@@ -176,7 +158,30 @@ function renderChannelDetail(ch) {
     </div>
   `;
   if (ch.source?.type === 'aes67') {
-    updateEditChannelMapOptions();
+    _initEditChannelMap(ch);
+  }
+}
+
+function _initEditChannelMap(ch) {
+  const n = ch.source?.channels || 2;
+  const savedMap = ch.source?.channelMap ? ch.source.channelMap.join(',') : '';
+  const savedDownmix = ch.source?.downmix || '';
+  updateEditChannelMapOptions();
+  const mapSel = document.getElementById('edit-aes67-channelmap');
+  const dmRow  = document.getElementById('downmix-row-edit');
+  const dmSel  = document.getElementById('edit-aes67-downmix');
+  if (!mapSel) return;
+  if (savedMap && mapSel.querySelector(`option[value="${savedMap}"]`)) {
+    mapSel.value = savedMap;
+    if (dmRow) {
+      _syncDownmixRow(mapSel, dmRow);
+      if (savedDownmix && dmSel && dmSel.querySelector(`option[value="${savedDownmix}"]`)) {
+        dmSel.value = savedDownmix;
+      }
+    }
+  } else if (savedDownmix && dmRow && dmSel) {
+    _syncDownmixRow(mapSel, dmRow);
+    if (dmSel.querySelector(`option[value="${savedDownmix}"]`)) dmSel.value = savedDownmix;
   }
 }
 
@@ -533,6 +538,28 @@ window.clearSdpContent = function() {
   if (status) status.className = 'sdp-upload-status msg-hidden';
 };
 
+function _buildDownmixOptions(hasPairSelection) {
+  if (hasPairSelection) {
+    return `<option value="">— stéréo directe (L/R déjà stéréo) —</option>
+      <option value="mono-to-stereo">Mono → Stéréo — audiodescription (voix dupliquée L+R)</option>`;
+  }
+  return `<option value="">— pas de traitement (garder tel quel) —</option>
+    <option value="stereo">Stéréo standard (ITU-R BS.775) — downmix 5.1/7.1</option>
+    <option value="stereo-loud">Stéréo renforcée — malentendants (LFE + surround boostés)</option>
+    <option value="mono-to-stereo">Mono → Stéréo — audiodescription (voix dupliquée L+R)</option>
+    <option value="binaural">Binaural HRTF — rendu 3D casque</option>`;
+}
+
+function _syncDownmixRow(mapSel, dmRow) {
+  const hasPair = !!mapSel.value;
+  const dmSel = dmRow.querySelector('select');
+  if (!dmSel) return;
+  const prevDm = dmSel.value;
+  dmSel.innerHTML = _buildDownmixOptions(hasPair);
+  if (prevDm && dmSel.querySelector(`option[value="${prevDm}"]`)) dmSel.value = prevDm;
+  dmRow.classList.remove('channel-map-row-hidden');
+}
+
 window.updateChannelMapOptionsFor = function(chSelId, rowId, mapSelId, downmixRowId) {
   const n = parseInt(document.getElementById(chSelId)?.value || 2);
   const row = document.getElementById(rowId);
@@ -546,11 +573,18 @@ window.updateChannelMapOptionsFor = function(chSelId, rowId, mapSelId, downmixRo
     return;
   }
   row.classList.remove('channel-map-row-hidden');
-  if (dmRow) dmRow.classList.remove('channel-map-row-hidden');
   const pairs = [];
   for (let i = 1; i < n; i += 2) pairs.push([i, i + 1]);
-  sel.innerHTML = '<option value="">— tous les canaux (mix) —</option>' +
-    pairs.map(([l, r]) => `<option value="${l},${r}">Canaux ${l}+${r} (L/R)</option>`).join('');
+  const prevVal = sel.value;
+  sel.innerHTML = '<option value="">— tous les canaux (mix global) —</option>' +
+    pairs.map(([l, r]) => `<option value="${l},${r}">Canaux ${l} / ${r} (paire L/R)</option>`).join('');
+  if (prevVal && sel.querySelector(`option[value="${prevVal}"]`)) sel.value = prevVal;
+  if (dmRow) _syncDownmixRow(sel, dmRow);
+  sel._dmRow = dmRow;
+  if (!sel._dmListener) {
+    sel._dmListener = () => { if (sel._dmRow) _syncDownmixRow(sel, sel._dmRow); };
+    sel.addEventListener('change', sel._dmListener);
+  }
 };
 
 window.updateEditChannelMapOptions = function() {
@@ -561,11 +595,18 @@ window.updateEditChannelMapOptions = function() {
   if (!row || !sel) return;
   if (n <= 2) { row.classList.add('channel-map-row-hidden'); sel.value = ''; if (dmRow) dmRow.classList.add('channel-map-row-hidden'); return; }
   row.classList.remove('channel-map-row-hidden');
-  if (dmRow) dmRow.classList.remove('channel-map-row-hidden');
   const pairs = [];
   for (let i = 1; i < n; i += 2) pairs.push([i, i + 1]);
-  sel.innerHTML = '<option value="">— tous les canaux (mix) —</option>' +
-    pairs.map(([l, r]) => `<option value="${l},${r}">Canaux ${l} / ${r}</option>`).join('');
+  const prevVal = sel.value;
+  sel.innerHTML = '<option value="">— tous les canaux (mix global) —</option>' +
+    pairs.map(([l, r]) => `<option value="${l},${r}">Canaux ${l} / ${r} (paire L/R)</option>`).join('');
+  if (prevVal && sel.querySelector(`option[value="${prevVal}"]`)) sel.value = prevVal;
+  if (dmRow) _syncDownmixRow(sel, dmRow);
+  sel._dmRow = dmRow;
+  if (!sel._dmListener) {
+    sel._dmListener = () => { if (sel._dmRow) _syncDownmixRow(sel, sel._dmRow); };
+    sel.addEventListener('change', sel._dmListener);
+  }
 };
 
 window.updateChannelMapOptions = function() {
@@ -576,11 +617,18 @@ window.updateChannelMapOptions = function() {
   if (!row || !sel) return;
   if (n <= 2) { row.classList.add('channel-map-row-hidden'); sel.value = ''; if (dmRow) dmRow.classList.add('channel-map-row-hidden'); return; }
   row.classList.remove('channel-map-row-hidden');
-  if (dmRow) dmRow.classList.remove('channel-map-row-hidden');
   const pairs = [];
   for (let i = 1; i < n; i += 2) pairs.push([i, i + 1]);
-  sel.innerHTML = '<option value="">— tous les canaux (mix) —</option>' +
-    pairs.map(([l, r]) => `<option value="${l},${r}">Canaux ${l}+${r} (L/R)</option>`).join('');
+  const prevVal = sel.value;
+  sel.innerHTML = '<option value="">— tous les canaux (mix global) —</option>' +
+    pairs.map(([l, r]) => `<option value="${l},${r}">Canaux ${l} / ${r} (paire L/R)</option>`).join('');
+  if (prevVal && sel.querySelector(`option[value="${prevVal}"]`)) sel.value = prevVal;
+  if (dmRow) _syncDownmixRow(sel, dmRow);
+  sel._dmRow = dmRow;
+  if (!sel._dmListener) {
+    sel._dmListener = () => { if (sel._dmRow) _syncDownmixRow(sel, sel._dmRow); };
+    sel.addEventListener('change', sel._dmListener);
+  }
 };
 
 window.updateSourceForm = function() {
@@ -612,19 +660,13 @@ window.updateSourceForm = function() {
       </div>
       <div class="form-row channel-map-row-hidden" id="channel-map-row">
         <label class="form-label">Paire stéréo à extraire</label>
-        <select class="form-input" id="src-aes67-channelmap"><option value="">— tous les canaux (mix) —</option></select>
-        <div class="src-hint-grey">Sélectionnez quelle paire de canaux mono du flux sera envoyée en stéréo L/R</div>
+        <select class="form-input" id="src-aes67-channelmap"></select>
+        <div class="src-hint-grey">Choisissez la paire L/R à extraire, ou laissez sur <em>mix global</em> pour downmixer tous les canaux</div>
       </div>
       <div class="form-row channel-map-row-hidden" id="downmix-row">
-        <label class="form-label">Downmix vers stéréo</label>
-        <select class="form-input" id="src-aes67-downmix">
-          <option value="">— pas de traitement (flux déjà stéréo) —</option>
-          <option value="mono-to-stereo">Mono → Stéréo — audiodescription (voix dupliquée L+R)</option>
-          <option value="stereo">Stéréo standard (ITU-R BS.775) — downmix 5.1/7.1</option>
-          <option value="stereo-loud">Stéréo renforcée — malentendants (LFE + surround boostés)</option>
-          <option value="binaural">Binaural HRTF — rendu 3D casque</option>
-        </select>
-        <div class="src-hint-grey">Audiodescription : choisir <b>Mono → Stéréo</b> · 5.1/7.1 : choisir <b>Stéréo renforcée</b> ou standard</div>
+        <label class="form-label">Traitement stéréo</label>
+        <select class="form-input" id="src-aes67-downmix"></select>
+        <div class="src-hint-grey" id="downmix-hint-aes67">Audiodescription : <b>Mono → Stéréo</b> · 5.1/7.1 : <b>Stéréo renforcée</b> ou standard</div>
       </div>
       <div class="form-row">
         <label class="form-label">Gain (dB) <span class="label-opt">— optionnel, 0 = pas de changement</span></label>
@@ -675,17 +717,13 @@ window.updateSourceForm = function() {
       </div>
       <div class="form-row channel-map-row-hidden" id="channel-map-row-sdp">
         <label class="form-label">Paire stéréo à extraire</label>
-        <select class="form-input" id="src-aes67sdp-channelmap"><option value="">— tous les canaux (mix) —</option></select>
+        <select class="form-input" id="src-aes67sdp-channelmap"></select>
+        <div class="src-hint-grey">Choisissez la paire L/R à extraire, ou laissez sur <em>mix global</em> pour downmixer tous les canaux</div>
       </div>
       <div class="form-row channel-map-row-hidden" id="downmix-row-sdp">
-        <label class="form-label">Downmix vers stéréo</label>
-        <select class="form-input" id="src-aes67sdp-downmix">
-          <option value="">— pas de traitement —</option>
-          <option value="mono-to-stereo">Mono → Stéréo — audiodescription</option>
-          <option value="stereo">Stéréo standard (ITU-R BS.775)</option>
-          <option value="stereo-loud">Stéréo renforcée — malentendants</option>
-          <option value="binaural">Binaural HRTF — rendu 3D casque</option>
-        </select>
+        <label class="form-label">Traitement stéréo</label>
+        <select class="form-input" id="src-aes67sdp-downmix"></select>
+        <div class="src-hint-grey">Audiodescription : <b>Mono → Stéréo</b> · 5.1/7.1 : <b>Stéréo renforcée</b> ou standard</div>
       </div>
       <div class="form-row">
         <label class="form-label">Gain (dB) <span class="label-opt">— 0 = neutre</span></label>
@@ -712,17 +750,13 @@ window.updateSourceForm = function() {
       </div>
       <div class="form-row channel-map-row-hidden" id="channel-map-row-paste">
         <label class="form-label">Paire stéréo à extraire</label>
-        <select class="form-input" id="src-aes67paste-channelmap"><option value="">— tous les canaux (mix) —</option></select>
+        <select class="form-input" id="src-aes67paste-channelmap"></select>
+        <div class="src-hint-grey">Choisissez la paire L/R à extraire, ou laissez sur <em>mix global</em> pour downmixer tous les canaux</div>
       </div>
       <div class="form-row channel-map-row-hidden" id="downmix-row-paste">
-        <label class="form-label">Downmix vers stéréo</label>
-        <select class="form-input" id="src-aes67paste-downmix">
-          <option value="">— pas de traitement —</option>
-          <option value="mono-to-stereo">Mono → Stéréo — audiodescription</option>
-          <option value="stereo">Stéréo standard</option>
-          <option value="stereo-loud">Stéréo renforcée — malentendants</option>
-          <option value="binaural">Binaural HRTF</option>
-        </select>
+        <label class="form-label">Traitement stéréo</label>
+        <select class="form-input" id="src-aes67paste-downmix"></select>
+        <div class="src-hint-grey">Audiodescription : <b>Mono → Stéréo</b> · 5.1/7.1 : <b>Stéréo renforcée</b> ou standard</div>
       </div>
       <div class="form-row">
         <label class="form-label">Gain (dB) <span class="label-opt">— 0 = neutre</span></label>
