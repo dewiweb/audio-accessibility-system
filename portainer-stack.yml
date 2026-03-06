@@ -20,11 +20,11 @@ services:
       SESSION_SECRET: "une-chaine-aleatoire-longue-ici"
 
       # URL publique — passer en https si TLS activé
-      PUBLIC_URL: "https://192.168.100.251:9443"
+      PUBLIC_URL: "https://192.168.100.251:4443"
 
       # HTTPS intégré Node.js (cert auto-généré au démarrage)
       TLS_CN: "192.168.100.251"
-      HTTPS_PORT: "9443"
+      HTTPS_PORT: "4443"
 
       # ── Double interface réseau (production) ──────────────────────────────
       # Décommenter et adapter pour séparer réseau régie et WiFi public.
