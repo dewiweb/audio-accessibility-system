@@ -786,9 +786,10 @@
 
   stopBtn.addEventListener('click', stopPlayback);
 
-  audio.addEventListener('waiting', () => { playerStatus.textContent = 'Chargement en cours…'; });
-  audio.addEventListener('playing', () => { playerStatus.textContent = 'En direct'; });
-  audio.addEventListener('error', () => { playerStatus.textContent = 'Erreur de lecture'; });
+  audio.addEventListener('waiting',  () => { playerStatus.textContent = 'Chargement en cours…'; });
+  audio.addEventListener('playing',  () => { playerStatus.textContent = 'En direct'; });
+  audio.addEventListener('canplay',  () => { if (!audio.paused) playerStatus.textContent = 'En direct'; });
+  audio.addEventListener('error',    () => { playerStatus.textContent = 'Erreur de lecture'; });
 
   function escapeHtml(str) {
     return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
