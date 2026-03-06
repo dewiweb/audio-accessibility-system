@@ -1171,7 +1171,19 @@ function renderChannelDetail(ch) {
           </div>
         </div>` : ''}
         ${ch.source?.type === 'aes67' ? `
-        <input type="hidden" id="edit-aes67-channels" value="${ch.source?.channels || 2}" />
+        <div class="form-row">
+          <label class="form-label">Nombre de canaux</label>
+          <div class="src-row-flex">
+            <select class="form-input src-select-flex" id="edit-aes67-channels" data-action="channels-change">
+              <option value="2" ${ch.source?.channels===2?'selected':''}>2 canaux (stéréo)</option>
+              <option value="4" ${ch.source?.channels===4?'selected':''}>4 canaux</option>
+              <option value="6" ${ch.source?.channels===6?'selected':''}>6 canaux</option>
+              <option value="8" ${ch.source?.channels===8?'selected':''}>8 canaux</option>
+              <option value="16" ${ch.source?.channels===16?'selected':''}>16 canaux</option>
+            </select>
+            <div class="src-hint-grey">Si l'auto-détection échoue, sélectionnez manuellement</div>
+          </div>
+        </div>
         <div class="form-row ${(ch.source?.channels||2)<=2?'channel-map-row-hidden':''}" id="edit-channel-map-row">
           <label class="form-label" for="edit-aes67-channelmap">Paire stéréo à extraire</label>
           <select class="form-input" id="edit-aes67-channelmap">
@@ -1182,12 +1194,12 @@ function renderChannelDetail(ch) {
               let opts = '';
               for (let i = 1; i < n; i += 2) {
                 const v = i+','+(i+1);
-                opts += '<option value="'+v+'"'+(cur===v?' selected':'')+'>Canaux '+i+' / '+(i+1)+'</option>';
+                opts += `<option value="${v}" ${cur === v ? 'selected' : ''}>Canaux ${i} / ${i+1}</option>`;
               }
               return opts;
-            })()} 
+            })()}
           </select>
-          <div class="src-hint-grey">Quelle paire mono du flux sera envoyée en stéréo L/R</div>
+          <div class="src-hint-grey">Sélectionnez quelle paire de canaux mono du flux sera envoyée en stéréo L/R</div>
         </div>
         <div class="form-row ${(ch.source?.channels||2)<=2?'channel-map-row-hidden':''}" id="downmix-row-edit">
           <label class="form-label" for="edit-aes67-downmix">Downmix vers stéréo</label>
@@ -1506,12 +1518,39 @@ async function uploadAudioFile(file) {
 
 function parseSdpChannels(content) {
   const lines = content.split('\n');
+  
+  // 1. Format standard a=rtpmap:96 L24/48000/8
   const rtpmap = lines.find(l => l.startsWith('a=rtpmap:')) || '';
-  const match = rtpmap.match(/\/(\d+)\s*$/);
+  let match = rtpmap.match(/\/(\d+)\s*$/);
   if (match) {
     const n = parseInt(match[1]);
     if ([1, 2, 4, 6, 8, 16].includes(n)) return n;
   }
+  
+  // 2. AES67 a=channelmap:ID:Channel1,...,ChannelN
+  const channelmap = lines.find(l => l.startsWith('a=channelmap:')) || '';
+  if (channelmap) {
+    const parts = channelmap.split(':')[1]?.split(',') || [];
+    const n = parts.length;
+    if ([1, 2, 4, 6, 8, 16].includes(n)) return n;
+  }
+  
+  // 3. Format a=fmtp:96 channel_count=8
+  const fmtp = lines.find(l => l.startsWith('a=fmtp:')) || '';
+  match = fmtp.match(/channel_count\s*=\s*(\d+)/);
+  if (match) {
+    const n = parseInt(match[1]);
+    if ([1, 2, 4, 6, 8, 16].includes(n)) return n;
+  }
+  
+  // 4. Fallback : compter les canaux dans a=channelmap (Dante)
+  const channellist = lines.find(l => l.startsWith('a=channelmap:')) || '';
+  if (channellist) {
+    const channels = channellist.split(':')[1]?.split(',') || [];
+    const n = channels.length;
+    if ([1, 2, 4, 6, 8, 16].includes(n)) return n;
+  }
+  
   return null;
 }
 
@@ -1730,7 +1769,19 @@ window.updateSourceForm = function() {
         <input class="form-input sdp-selected-input" id="src-aes67sdp-path" readonly placeholder="Aucun fichier sélectionné" />
       </div>
       <div class="src-hint-section">🎛️ Paramètres audio du flux</div>
-      <input type="hidden" id="src-aes67sdp-channels" value="2" />
+      <div class="form-row">
+        <label class="form-label">Nombre de canaux (auto-détecté depuis SDP)</label>
+        <div class="src-row-flex">
+          <select class="form-input src-select-flex" id="src-aes67sdp-channels">
+            <option value="2">2 canaux (stéréo)</option>
+            <option value="4">4 canaux</option>
+            <option value="6">6 canaux</option>
+            <option value="8">8 canaux</option>
+            <option value="16">16 canaux</option>
+          </select>
+          <div class="src-hint-grey">Si l'auto-détection échoue, sélectionnez manuellement</div>
+        </div>
+      </div>
       <div class="form-row channel-map-row-hidden" id="channel-map-row-sdp">
         <label class="form-label">Paire stéréo à extraire</label>
         <select class="form-input" id="src-aes67sdp-channelmap">
@@ -1769,7 +1820,19 @@ window.updateSourceForm = function() {
         <div class="src-hint-grey-md">💡 Le contenu sera sauvegardé automatiquement sur le serveur lors de la création du canal.</div>
       </div>
       <div class="src-hint-section">🎛️ Paramètres audio du flux</div>
-      <input type="hidden" id="src-aes67paste-channels" value="2" />
+      <div class="form-row">
+        <label class="form-label">Nombre de canaux (auto-détecté depuis SDP)</label>
+        <div class="src-row-flex">
+          <select class="form-input src-select-flex" id="src-aes67paste-channels" data-action="channels-change">
+            <option value="2">2 canaux (stéréo)</option>
+            <option value="4">4 canaux</option>
+            <option value="6">6 canaux</option>
+            <option value="8">8 canaux</option>
+            <option value="16">16 canaux</option>
+          </select>
+          <div class="src-hint-grey">Si l'auto-détection échoue, sélectionnez manuellement</div>
+        </div>
+      </div>
       <div class="form-row channel-map-row-hidden" id="channel-map-row-paste">
         <label class="form-label">Paire stéréo à extraire</label>
         <select class="form-input" id="src-aes67paste-channelmap">
@@ -2027,6 +2090,13 @@ document.addEventListener('input', (e) => {
       break;
     }
     case 'sdp-content-input':  onSdpContentInput(el); break;
+    case 'channels-change': {
+      const id = el.id;
+      if (id === 'src-aes67sdp-channels') updateChannelMapOptionsFor('src-aes67sdp-channels', 'channel-map-row-sdp', 'src-aes67sdp-channelmap');
+      else if (id === 'src-aes67paste-channels') updateChannelMapOptionsFor('src-aes67paste-channels', 'channel-map-row-paste', 'src-aes67paste-channelmap');
+      else if (id === 'edit-aes67-channels') updateEditChannelMapOptions();
+      break;
+    }
     case 'edit-sdp-input':     onEditSdpInput(el.dataset.id, el); break;
   }
 });
