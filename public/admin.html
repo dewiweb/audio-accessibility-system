@@ -516,6 +516,10 @@
     .bar-width { transition: width 0.3s ease; }
     .sys-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
     .sys-last-update { font-size: 13px; color: var(--text3); }
+    .bar-width-0 { width: 0%; }
+    .sys-net-title { display: flex; align-items: center; gap: 8px; }
+    .sys-netcfg-body { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .sys-loading { color: var(--text3); font-size: 13px; padding-top: 8px; }
   </style>
 </head>
 <body>
@@ -667,7 +671,7 @@
                   <span>Utilisation</span>
                   <span id="sys-disk-pct">—</span>
                 </div>
-                <div class="sys-bar"><div class="sys-bar-fill" id="sys-disk-bar" style="width:0%"></div></div>
+                <div class="sys-bar"><div class="sys-bar-fill" id="sys-disk-bar" class="bar-width-0"></div></div>
               </div>
               <div class="sys-metric"><span class="sys-metric-label">Utilisé</span><span class="sys-metric-value" id="sys-disk-used">—</span></div>
               <div class="sys-metric"><span class="sys-metric-label">Libre</span><span class="sys-metric-value" id="sys-disk-free">—</span></div>
@@ -686,11 +690,11 @@
 
             <!-- Config réseau -->
             <div class="sys-card sys-view-wide">
-              <div class="sys-card-title" style="display:flex;align-items:center;gap:8px">
+              <div class="sys-card-title sys-net-title">
                 🌐 Configuration réseau
                 <span class="netcfg-badge" id="sys-net-mode">chargement...</span>
               </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px" id="sys-netcfg-body">
+              <div class="sys-netcfg-body" id="sys-netcfg-body">
                 <div id="sys-netcfg-admin"></div>
                 <div id="sys-netcfg-public"></div>
               </div>
@@ -703,20 +707,20 @@
                 <thead><tr>
                   <th>Interface</th><th>Adresse IP</th><th>Famille</th><th>Masque</th><th>MAC</th>
                 </tr></thead>
-                <tbody id="sys-iface-body"><tr><td colspan="5" style="color:var(--text3);padding-top:8px">Chargement…</td></tr></tbody>
+                <tbody id="sys-iface-body"><tr><td colspan="5" class="sys-loading">Chargement…</td></tr></tbody>
               </table>
             </div>
 
             <!-- Streams actifs -->
             <div class="sys-card sys-view-wide">
               <div class="sys-card-title">🎙 Streams actifs</div>
-              <div id="sys-streams-body" style="color:var(--text3);font-size:13px">Chargement…</div>
+              <div id="sys-streams-body" class="sys-loading">Chargement…</div>
             </div>
 
             <!-- Sources audio -->
             <div class="sys-card sys-view-wide">
               <div class="sys-card-title">🎚 Sources audio système (ALSA / PulseAudio)</div>
-              <div id="sys-audio-sources-body" style="color:var(--text3);font-size:13px">Chargement…</div>
+              <div id="sys-audio-sources-body" class="sys-loading">Chargement…</div>
             </div>
           </div>
         </div>
@@ -926,6 +930,9 @@ function buildIconGrid(gridId, inputId, previewId) {
 function init() {
   // Initialiser le gestionnaire de vue
   ViewState.show(ViewState.VIEWS.OVERVIEW);
+  
+  // Initialiser les event listeners
+  initEventListeners();
   
   connectAdminWs();
   loadQr();
@@ -2767,17 +2774,30 @@ function hideSystemView() {
   }
 }
 
-// Bouton système (action direct, plus de toggle)
-document.getElementById('btn-system').addEventListener('click', () => {
-  if (ViewState.current === ViewState.VIEWS.SYSTEM) {
-    hideSystemView();
-  } else {
-    showSystemView();
+// Initialiser les event listeners quand le DOM est prêt
+function initEventListeners() {
+  // Bouton système (action direct, plus de toggle)
+  const btnSystem = document.getElementById('btn-system');
+  if (btnSystem) {
+    btnSystem.addEventListener('click', () => {
+      if (ViewState.current === ViewState.VIEWS.SYSTEM) {
+        hideSystemView();
+      } else {
+        showSystemView();
+      }
+    });
   }
-});
 
-document.getElementById('sys-refresh-btn').addEventListener('click', refreshSystemView);
-document.getElementById('btn-back-from-system').addEventListener('click', hideSystemView);
+  const sysRefreshBtn = document.getElementById('sys-refresh-btn');
+  if (sysRefreshBtn) {
+    sysRefreshBtn.addEventListener('click', refreshSystemView);
+  }
+
+  const btnBackFromSystem = document.getElementById('btn-back-from-system');
+  if (btnBackFromSystem) {
+    btnBackFromSystem.addEventListener('click', hideSystemView);
+  }
+}
 
 // Breadcrumbs navigation
 document.addEventListener('click', (e) => {
