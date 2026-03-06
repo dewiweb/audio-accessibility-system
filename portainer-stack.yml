@@ -59,6 +59,10 @@ services:
       # Interface réseau du serveur Docker vers le réseau AES67 (QSYS)
       MULTICAST_INTERFACE: "192.168.100.251"
 
+      # WebRTC / WHIP+WHEP via MediaMTX (mode low-latency pour canaux AES67)
+      # network_mode: host — MediaMTX écoute sur localhost:8889
+      MEDIAMTX_URL: "http://127.0.0.1:8889"
+
     volumes:
       # Persistance données canaux
       - audio-access-data:/app/uploads
@@ -76,6 +80,19 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    container_name: audio-access-mediamtx
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - /opt/audio-access/mediamtx.yml:/mediamtx.yml:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
 
 volumes:
   audio-access-data:

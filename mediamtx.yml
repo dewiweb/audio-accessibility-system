@@ -1,0 +1,42 @@
+###############################################################################
+# MediaMTX — configuration pour audio-accessibility-system
+# Rôle : SFU WebRTC (WHIP ingest ← FFmpeg, WHEP egress → navigateurs)
+# Latence cible : 50–100ms (LAN dédié salle de spectacle)
+###############################################################################
+
+# Adresse d'écoute de l'API HTTP (WHIP/WHEP) — accessible depuis le container Node.js
+api: yes
+apiAddress: :9997
+
+# Adresse WebRTC — ports UDP pour ICE (LAN uniquement, pas de TURN)
+webrtcAddress: :8889
+webrtcICEHostNAT1To1IPs: []
+webrtcICEServers2: []
+
+# Désactiver les protocoles inutiles pour ce use-case
+rtspDisable: yes
+rtmpDisable: yes
+srtDisable: yes
+hls: no
+
+# Logging minimal en production
+logLevel: info
+logDestinations: [stdout]
+
+# Pas d'authentification interne — l'accès WHIP est limité au réseau interne Docker
+# L'accès WHEP est ouvert aux clients LAN (WiFi salle) via le proxy Node.js
+authMethod: noAuth
+
+###############################################################################
+# Paths — un path par canal audio
+# Les paths sont créés dynamiquement par FFmpeg via WHIP.
+# Pas de configuration statique nécessaire — MediaMTX accepte tout publisher.
+###############################################################################
+paths:
+  all:
+    # Accepter tout publisher WHIP sans auth (réseau interne Docker uniquement)
+    source: publisher
+    # Supprimer le path dès que le publisher se déconnecte
+    publisherOnDemand: no
+    # Pas de recording
+    record: no

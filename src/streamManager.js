@@ -77,6 +77,11 @@ class StreamManager extends EventEmitter {
       return this._startSineStream(channelId, source);
     }
 
+    // Mode WebRTC low-latency : FFmpeg → libopus → WHIP → MediaMTX
+    if (source.type === 'aes67' && source.streamMode === 'webrtc') {
+      return this._startWhipStream(channelId, source);
+    }
+
     const outputDir = this.getChannelOutputDir(channelId);
     const playlistPath = path.join(outputDir, 'stream.m3u8');
     const sourceConfig = this._resolveSource(source);
@@ -398,6 +403,89 @@ class StreamManager extends EventEmitter {
     });
 
     return { channelId, playlistUrl: `/hls/${channelId}/stream.m3u8` };
+  }
+
+  _startWhipStream(channelId, source) {
+    const sourceConfig = this._resolveSource(source);
+    const whipUrl = `${config.audio.mediamtxUrl}/${channelId}/whip`;
+
+    // Filtres audio identiques au mode HLS
+    const audioFilters = [];
+    if (source.channelMap && source.channelMap.length === 2) {
+      const [l, r] = source.channelMap.map(n => n - 1);
+      audioFilters.push(`pan=stereo|c0=c${l}|c1=c${r}`);
+    }
+    if (source.downmix && !source.channelMap) {
+      switch (source.downmix) {
+        case 'stereo':       audioFilters.push('aformat=channel_layouts=stereo'); break;
+        case 'stereo-loud':  audioFilters.push('pan=stereo|c0=0.65*c0+0.45*c2+0.45*c4+0.55*c6|c1=0.65*c1+0.45*c2+0.45*c5+0.55*c6'); break;
+        case 'binaural':     audioFilters.push('headphone=hrir=compensated:type=time'); break;
+        case 'mono-to-stereo': audioFilters.push('pan=stereo|c0=c0|c1=c0'); break;
+      }
+    }
+    if (source.gain && source.gain !== 0) audioFilters.push(`volume=${source.gain}dB`);
+
+    // Construire la commande FFmpeg avec spawn (pas fluent-ffmpeg : besoin de -f rtp pour WHIP)
+    const args = [
+      ...sourceConfig.inputOptions.flatMap(o => o.trim().split(/\s+/)),
+      '-i', sourceConfig.input,
+    ];
+    if (audioFilters.length > 0) args.push('-af', audioFilters.join(','));
+    args.push(
+      '-c:a', 'libopus',
+      '-b:a', '64k',
+      '-ac', '2',
+      '-ar', String(config.audio.sampleRate),
+      '-application', 'lowdelay',
+      '-frame_duration', '20',
+      '-f', 'rtp',
+      whipUrl,
+    );
+
+    console.log(`[Stream ${channelId}] WHIP mode → ${whipUrl}`);
+    const proc = spawn(config.audio.ffmpegPath || 'ffmpeg', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+
+    proc.stdout.on('data', () => {});
+    proc.stderr.on('data', d => {
+      const line = d.toString().trim();
+      if (line) console.log(`[Stream ${channelId}] ${line}`);
+    });
+
+    proc.once('spawn', () => {
+      channelManager.setActive(channelId, true);
+      this.emit('stream:started', { channelId, mode: 'webrtc' });
+      console.log(`[Stream ${channelId}] WHIP stream started (pid ${proc.pid})`);
+    });
+
+    proc.once('error', err => {
+      console.error(`[Stream ${channelId}] WHIP error:`, err.message);
+      this.activeStreams.delete(channelId);
+      channelManager.setActive(channelId, false);
+      this.emit('stream:error', { channelId, error: err.message });
+    });
+
+    proc.once('close', code => {
+      console.log(`[Stream ${channelId}] WHIP process closed (code ${code})`);
+      this.activeStreams.delete(channelId);
+      channelManager.setActive(channelId, false);
+      if (sourceConfig.tempSdp && fs.existsSync(sourceConfig.tempSdp)) {
+        try { fs.unlinkSync(sourceConfig.tempSdp); } catch {}
+      }
+      this.emit('stream:ended', { channelId });
+    });
+
+    this.activeStreams.set(channelId, {
+      proc: { kill: sig => proc.kill(sig), pid: proc.pid },
+      source,
+      mode: 'webrtc',
+      whipUrl,
+      startedAt: new Date().toISOString(),
+      tempSdp: sourceConfig.tempSdp || null,
+      stopSine: null,
+      cleanupInterval: null,
+    });
+
+    return { channelId, whepUrl: `/${channelId}/whep`, mode: 'webrtc' };
   }
 
   stopStream(channelId) {

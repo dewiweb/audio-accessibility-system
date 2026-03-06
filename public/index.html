@@ -587,15 +587,21 @@
       if (!resp.ok) throw new Error(`Erreur serveur (${resp.status})`);
       const ch = await resp.json();
 
-      if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+      if (ch.streamMode === 'webrtc' && ch.whepUrl && typeof RTCPeerConnection !== 'undefined') {
+        await startWhep(ch.whepUrl, ch);
+      } else if (ch.streamMode === 'webrtc' && ch.whepUrl) {
+        showToast('WebRTC non supporté — bascule sur HLS si disponible', 3000);
+        if (ch.hlsUrl) {
+          _startHlsFallback(ch);
+        } else { renderChannels(); return; }
+      } else if (typeof Hls !== 'undefined' && Hls.isSupported()) {
         startHls(ch.hlsUrl, ch);
-        updatePlayerUI(ch);
       } else if (audio.canPlayType('application/vnd.apple.mpegurl')) {
         audio.src = ch.hlsUrl;
         audio.play().catch(() => showToast('Appuyez à nouveau pour démarrer l\'audio'));
         updatePlayerUI(ch);
       } else {
-        showToast('Navigateur incompatible HLS. Essayez Chrome ou Firefox.', 5000);
+        showToast('Navigateur incompatible. Essayez Chrome ou Firefox.', 5000);
         if (btn) { btn.textContent = '▶ Écouter'; btn.disabled = false; }
         return;
       }
@@ -612,6 +618,62 @@
   }
 
   let hlsInstance = null;
+  let whepPc = null;
+
+  function stopWhep() {
+    if (whepPc) { try { whepPc.close(); } catch {} whepPc = null; }
+    audio.srcObject = null;
+  }
+
+  async function startWhep(whepUrl, ch) {
+    stopWhep();
+    const pc = new RTCPeerConnection({ iceServers: [] });
+    whepPc = pc;
+    pc.addTransceiver('audio', { direction: 'recvonly' });
+
+    pc.ontrack = (e) => {
+      if (e.streams && e.streams[0]) {
+        audio.srcObject = e.streams[0];
+        audio.play().catch(() => showToast('Touchez l\'écran pour activer le son', 3000));
+        updatePlayerUI(ch);
+      }
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
+        showToast('WebRTC déconnecté — reconnexion…', 2500);
+        setTimeout(() => { if (whepPc === pc) startWhep(whepUrl, ch); }, 2000);
+      }
+    };
+
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+
+    await new Promise(resolve => {
+      if (pc.iceGatheringState === 'complete') { resolve(); return; }
+      pc.onicegatheringchange = () => { if (pc.iceGatheringState === 'complete') resolve(); };
+      setTimeout(resolve, 2000);
+    });
+
+    const r = await fetch(whepUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/sdp' },
+      body: pc.localDescription.sdp,
+    });
+    if (!r.ok) throw new Error(`WHEP error ${r.status}`);
+    const answer = await r.text();
+    await pc.setRemoteDescription({ type: 'answer', sdp: answer });
+  }
+
+  function _startHlsFallback(ch) {
+    if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+      startHls(ch.hlsUrl, ch);
+    } else if (audio.canPlayType('application/vnd.apple.mpegurl')) {
+      audio.src = ch.hlsUrl;
+      audio.play().catch(() => {});
+      updatePlayerUI(ch);
+    }
+  }
 
   function startHls(url, ch) {
     if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
@@ -673,6 +735,7 @@
   }
 
   function stopPlayback() {
+    stopWhep();
     if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
     audio.src = '';
     if (ws && ws.readyState === 1) {

@@ -41,9 +41,13 @@ services:
 
       # === AES67 / RTP ===
       # Tampon jitter réseau en millisecondes (augmenter si glitches)
-      - RTP_BUFFER_MS=200
+      - RTP_BUFFER_MS=50
       # Interface réseau pour le multicast (laisser vide = auto)
       - MULTICAST_INTERFACE=${MULTICAST_INTERFACE:-}
+
+      # === WebRTC / WHIP+WHEP (MediaMTX) ===
+      # URL interne Docker pour que FFmpeg publie en WHIP
+      - MEDIAMTX_URL=http://mediamtx:8889
 
     volumes:
       # Persistance des configurations de canaux et fichiers audio uploadés
@@ -72,6 +76,19 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
+
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    container_name: audio-access-mediamtx
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
 
 volumes:
   audio-data:

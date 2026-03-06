@@ -682,6 +682,14 @@ window.updateSourceForm = function() {
           </select>
         </div>
         <div class="form-row"><label class="form-label">Interface réseau (optionnel)</label><input class="form-input" id="src-aes67-iface" placeholder="laisser vide = auto" /></div>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Mode de diffusion</label>
+        <select class="form-input" id="src-aes67-streammode">
+          <option value="hls">📡 HLS — compatible tous appareils · latence ~3-4s</option>
+          <option value="webrtc">⚡ WebRTC — ultra low-latency ~50-100ms (renforcement sonore)</option>
+        </select>
+        <div class="src-hint-grey">WebRTC requis MediaMTX actif. HLS recommandé pour audiodescription/malentendants.</div>
       </div>`,
     'aes67sdp-upload': `
       <div class="src-hint-sm">📂 AES67 via fichier SDP — uploader un fichier .sdp exporté depuis la console Dante/AES67</div>
@@ -728,6 +736,14 @@ window.updateSourceForm = function() {
       <div class="form-row">
         <label class="form-label">Gain (dB) <span class="label-opt">— 0 = neutre</span></label>
         <input class="form-input gain-input" id="src-aes67sdp-gain" type="number" value="0" step="1" min="-20" max="20" />
+      </div>
+      <div class="form-row">
+        <label class="form-label">Mode de diffusion</label>
+        <select class="form-input" id="src-aes67sdp-streammode">
+          <option value="hls">📡 HLS — compatible tous appareils · latence ~3-4s</option>
+          <option value="webrtc">⚡ WebRTC — ultra low-latency ~50-100ms (renforcement sonore)</option>
+        </select>
+        <div class="src-hint-grey">WebRTC requis MediaMTX actif. HLS recommandé pour audiodescription/malentendants.</div>
       </div>`,
     'aes67sdp-paste': `
       <div class="src-hint-sm">✏️ AES67 via contenu SDP — coller ou saisir le contenu SDP directement</div>
@@ -761,6 +777,14 @@ window.updateSourceForm = function() {
       <div class="form-row">
         <label class="form-label">Gain (dB) <span class="label-opt">— 0 = neutre</span></label>
         <input class="form-input gain-input" id="src-aes67paste-gain" type="number" value="0" step="1" min="-20" max="20" />
+      </div>
+      <div class="form-row">
+        <label class="form-label">Mode de diffusion</label>
+        <select class="form-input" id="src-aes67paste-streammode">
+          <option value="hls">📡 HLS — compatible tous appareils · latence ~3-4s</option>
+          <option value="webrtc">⚡ WebRTC — ultra low-latency ~50-100ms (renforcement sonore)</option>
+        </select>
+        <div class="src-hint-grey">WebRTC requis MediaMTX actif. HLS recommandé pour audiodescription/malentendants.</div>
       </div>`,
     alsa: `
       <div class="form-row-2">
@@ -818,6 +842,7 @@ function buildSource() {
         channels: parseInt(document.getElementById('src-aes67-channels')?.value || 2),
         sampleRate: parseInt(document.getElementById('src-aes67-samplerate')?.value || 48000),
         interface: document.getElementById('src-aes67-iface')?.value || '',
+        streamMode: document.getElementById('src-aes67-streammode')?.value || 'hls',
       };
       if (chMapVal) src.channelMap = chMapVal.split(',').map(Number);
       const downmixVal = document.getElementById('src-aes67-downmix')?.value || '';
@@ -829,7 +854,10 @@ function buildSource() {
     case 'aes67sdp-upload': {
       const sdpFile = document.getElementById('src-aes67sdp-path')?.value || '';
       if (!sdpFile) throw new Error('Veuillez sélectionner ou uploader un fichier SDP');
-      const src = { type: 'aes67', sdpFile };
+      const src = {
+        type: 'aes67', sdpFile,
+        streamMode: document.getElementById('src-aes67sdp-streammode')?.value || 'hls',
+      };
       src.channels = parseInt(document.getElementById('src-aes67sdp-channels')?.value || 2);
       const chMap = document.getElementById('src-aes67sdp-channelmap')?.value || '';
       if (chMap) src.channelMap = chMap.split(',').map(Number);
@@ -842,7 +870,10 @@ function buildSource() {
     case 'aes67sdp-paste': {
       const sdpContent = document.getElementById('src-aes67sdp-content')?.value || '';
       if (!sdpContent.trim()) throw new Error('Veuillez saisir le contenu SDP');
-      const src = { type: 'aes67', sdpContent };
+      const src = {
+        type: 'aes67', sdpContent,
+        streamMode: document.getElementById('src-aes67paste-streammode')?.value || 'hls',
+      };
       src.channels = parseInt(document.getElementById('src-aes67paste-channels')?.value || 2);
       const chMap = document.getElementById('src-aes67paste-channelmap')?.value || '';
       if (chMap) src.channelMap = chMap.split(',').map(Number);

@@ -102,18 +102,25 @@ router.get('/channels', (req, res) => {
 router.get('/channels/:id', (req, res) => {
   const ch = channelManager.getChannel(req.params.id);
   if (!ch || !ch.active) return res.status(404).json({ error: 'Channel not found' });
-  res.json({
+  const isWebRtc = ch.source?.type === 'aes67' && ch.source?.streamMode === 'webrtc';
+  const resp = {
     id: ch.id,
     name: ch.name,
     description: ch.description,
     language: ch.language,
     icon: ch.icon,
     color: ch.color,
-    hlsUrl: `/hls/${ch.id}/stream.m3u8`,
     listenerCount: ch.listenerCount,
     sourceType: ch.source?.type || 'unknown',
     sourceLoop: ch.source?.loop === true,
-  });
+    streamMode: isWebRtc ? 'webrtc' : 'hls',
+  };
+  if (isWebRtc) {
+    resp.whepUrl = `/whep/${ch.id}`;
+  } else {
+    resp.hlsUrl = `/hls/${ch.id}/stream.m3u8`;
+  }
+  res.json(resp);
 });
 
 router.get('/qrcode', async (req, res) => {

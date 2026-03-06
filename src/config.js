@@ -51,6 +51,8 @@ module.exports = {
     rtpBufferMs: parseInt(process.env.RTP_BUFFER_MS) || 50,
     // Multicast interface (network interface name or IP)
     multicastInterface: process.env.MULTICAST_INTERFACE || '',
+    // MediaMTX WHIP/WHEP endpoint (WebRTC low-latency mode)
+    mediamtxUrl: process.env.MEDIAMTX_URL || 'http://127.0.0.1:8889',
   },
   paths: {
     hlsOutput: process.env.HLS_OUTPUT_DIR || path.join(__dirname, '../public/hls'),

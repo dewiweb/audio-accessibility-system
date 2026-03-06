@@ -173,6 +173,41 @@ app.use('/hls', (req, res, next) => {
   next();
 }, express.static(config.paths.hlsOutput));
 
+// --- Proxy WHEP : POST /whep/:channelId → MediaMTX ---
+// Permet au navigateur d'appeler /whep/... sur la même origine HTTPS,
+// sans modifier la CSP (connect-src 'self' suffit).
+// MediaMTX reste inaccessible depuis l'extérieur.
+app.options('/whep/:channelId', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.sendStatus(204);
+});
+app.post('/whep/:channelId', async (req, res) => {
+  const { channelId } = req.params;
+  const mediamtxUrl = `${config.audio.mediamtxUrl}/${channelId}/whep`;
+  try {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    await new Promise(resolve => req.on('end', resolve));
+    const upstream = await fetch(mediamtxUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/sdp' },
+      body,
+    });
+    if (!upstream.ok) {
+      const txt = await upstream.text();
+      return res.status(upstream.status).send(txt);
+    }
+    const sdpAnswer = await upstream.text();
+    res.setHeader('Content-Type', 'application/sdp');
+    res.status(201).send(sdpAnswer);
+  } catch (e) {
+    console.error('[WHEP proxy] Error:', e.message);
+    res.status(502).json({ error: 'MediaMTX unavailable' });
+  }
+});
+
 // API routes
 app.use('/api', apiRoutes);
 
@@ -278,6 +313,25 @@ if (isDualNetwork) {
     }
     next();
   }, express.static(config.paths.hlsOutput));
+  // Proxy WHEP sur interface publique (même logique que l'interface admin)
+  publicApp.post('/whep/:channelId', async (req, res) => {
+    const mediamtxUrl = `${config.audio.mediamtxUrl}/${req.params.channelId}/whep`;
+    try {
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      await new Promise(resolve => req.on('end', resolve));
+      const upstream = await fetch(mediamtxUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/sdp' },
+        body,
+      });
+      if (!upstream.ok) return res.status(upstream.status).send(await upstream.text());
+      res.setHeader('Content-Type', 'application/sdp');
+      res.status(201).send(await upstream.text());
+    } catch (e) {
+      res.status(502).json({ error: 'MediaMTX unavailable' });
+    }
+  });
   // Bloquer toutes les routes /api/admin/* sur l'interface publique (defense in depth)
   publicApp.all('/api/admin/*', (req, res) => res.status(403).json({ error: 'Admin API not available on public interface' }));
   // API publique uniquement (/api/channels, /api/qrcode)

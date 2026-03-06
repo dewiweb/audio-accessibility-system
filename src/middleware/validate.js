@@ -160,6 +160,13 @@ function validateChannel(req, res, next) {
         return res.status(400).json({ error: `downmix invalide. Valeurs acceptées : ${allowed.join(', ')}.` });
       }
     }
+
+    // Mode de diffusion : hls (défaut) ou webrtc (low-latency via WHIP/WHEP)
+    if (s.streamMode !== undefined) {
+      if (!['hls', 'webrtc'].includes(s.streamMode)) {
+        return res.status(400).json({ error: 'streamMode invalide. Valeurs acceptées : hls, webrtc.' });
+      }
+    }
   }
 
   next();
