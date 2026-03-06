@@ -2341,12 +2341,24 @@ async function loadSystemInfo() {
 
     // CPU
     const cpuPct = cpu.loadPercent;
-    setText('sys-cpu-pct', cpuPct + '%');
+    const cpuText = cpu.loadAvgReliable ? cpuPct + '%' : cpuPct + '% (container)';
+    setText('sys-cpu-pct', cpuText);
     setBar('sys-cpu-bar', cpuPct);
-    setText('sys-load1',  cpu.loadAvg1);
-    setText('sys-load5',  cpu.loadAvg5);
-    setText('sys-load15', cpu.loadAvg15);
-    setText('sys-cores',  cpu.count + ' × ' + (cpu.model || '').split(' ').slice(0, 3).join(' '));
+    
+    // Load average avec indicateur si peu fiable
+    const load1Text = cpu.loadAvgReliable ? cpu.loadAvg1 : cpu.loadAvg1 + ' ⚠️';
+    const load5Text = cpu.loadAvgReliable ? cpu.loadAvg5 : cpu.loadAvg5 + ' ⚠️';
+    const load15Text = cpu.loadAvgReliable ? cpu.loadAvg15 : cpu.loadAvg15 + ' ⚠️';
+    setText('sys-load1', load1Text);
+    setText('sys-load5', load5Text);
+    setText('sys-load15', load15Text);
+    
+    // CPU model avec indicateur container
+    let cpuModel = (cpu.model || '').split(' ').slice(0, 3).join(' ');
+    if (cpu.isContainerized && cpuModel !== 'unknown') {
+      cpuModel += ' 🐳';
+    }
+    setText('sys-cores', cpu.count + ' × ' + cpuModel);
 
     // Mémoire
     const memPct = mem.usedPercent;

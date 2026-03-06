@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const fsPromises = require('fs').promises;
 const { exec } = require('child_process');
-const multer = require('multer');
 const rateLimit = require('express-rate-limit');
 const channelManager = require('../channelManager');
 const streamManager = require('../streamManager');
@@ -362,6 +363,23 @@ router.get('/admin/system/info', adminLimiter, requireAdmin, (req, res) => {
         };
       }
     }
+    // Détection environnement containerisé
+    let isContainerized = process.env.NODE_ENV === 'production' && 
+      (process.env.DOCKER_CONTAINER || fs.existsSync('/.dockerenv'));
+    
+    // Vérifier les cgroups de manière asynchrone si nécessaire
+    if (!isContainerized && fs.existsSync('/proc/1/cgroup')) {
+      try {
+        const cgroupContent = fs.readFileSync('/proc/1/cgroup', 'utf8');
+        isContainerized = cgroupContent.includes('docker') || cgroupContent.includes('containerd');
+      } catch (e) {
+        // Ignorer les erreurs de lecture
+      }
+    }
+
+    // Load average peu fiable dans certains conteneurs
+    const loadAvgReliable = !isContainerized || (loadAvg[0] > 0 && loadAvg[1] > 0 && loadAvg[2] > 0);
+    
     res.json({
       cpu: {
         count: cpus.length,
@@ -369,7 +387,9 @@ router.get('/admin/system/info', adminLimiter, requireAdmin, (req, res) => {
         loadAvg1:  Math.round(loadAvg[0] * 100) / 100,
         loadAvg5:  Math.round(loadAvg[1] * 100) / 100,
         loadAvg15: Math.round(loadAvg[2] * 100) / 100,
-        loadPercent: Math.min(100, Math.round((loadAvg[0] / cpus.length) * 100)),
+        loadPercent: loadAvgReliable ? Math.min(100, Math.round((loadAvg[0] / cpus.length) * 100)) : 0,
+        loadAvgReliable, // Indicateur pour le frontend
+        isContainerized,
       },
       memory: {
         total: totalMem,
