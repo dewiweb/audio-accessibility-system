@@ -2,11 +2,18 @@ const express = require('express');
 const router = express.Router();
 const path = require('path');
 const fs = require('fs');
+const { exec } = require('child_process');
 const multer = require('multer');
+const rateLimit = require('express-rate-limit');
 const channelManager = require('../channelManager');
 const streamManager = require('../streamManager');
 const config = require('../config');
+const authManager = require('../authManager');
+const tokenManager = require('../tokenManager');
+const { validateChannel, validateSdpSave, validateFilename } = require('../middleware/validate');
 const QRCode = require('qrcode');
+
+const IS_PROD = process.env.NODE_ENV === 'production';
 
 const sdpDir = path.join(__dirname, '../../sdp');
 const audioDir = path.join(__dirname, '../../uploads/audio');
@@ -57,11 +64,31 @@ const uploadAudio = multer({
   },
 });
 
+// Rate limiting sur les routes d'authentification (anti brute-force — ANSSI RGS)
+const authLimiter = rateLimit({
+  windowMs: config.security.rateLimitAuthWindow,
+  max: config.security.rateLimitAuthMax,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Trop de tentatives. Réessayez dans quelques minutes.' },
+  skipSuccessfulRequests: false,
+});
+
+// Rate limiting général sur toutes les routes admin (hors auth)
+const adminLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Trop de requêtes.' },
+});
+
+// Middleware d'authentification admin par token HMAC (Security by design)
+// Le mot de passe n'est plus jamais transmis dans les headers après le login initial.
 function requireAdmin(req, res, next) {
-  const auth = req.headers['x-admin-password'] || req.query.adminPassword;
-  if (auth !== config.security.adminPassword) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
+  const token = req.headers['x-admin-token'];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  if (!tokenManager.verify(token)) return res.status(401).json({ error: 'Unauthorized' });
   next();
 }
 
@@ -84,6 +111,7 @@ router.get('/channels/:id', (req, res) => {
     hlsUrl: `/hls/${ch.id}/stream.m3u8`,
     listenerCount: ch.listenerCount,
     sourceType: ch.source?.type || 'unknown',
+    sourceLoop: ch.source?.loop === true,
   });
 });
 
@@ -113,7 +141,7 @@ router.get('/admin/channels', requireAdmin, (req, res) => {
   res.json(channelManager.getAllChannels());
 });
 
-router.post('/admin/channels', requireAdmin, (req, res) => {
+router.post('/admin/channels', requireAdmin, validateChannel, (req, res) => {
   const { name, description, language, icon, color, source } = req.body;
   if (!name || !source) return res.status(400).json({ error: 'name and source are required' });
 
@@ -134,7 +162,7 @@ router.post('/admin/channels', requireAdmin, (req, res) => {
   res.status(201).json(channel);
 });
 
-router.put('/admin/channels/:id', requireAdmin, (req, res) => {
+router.put('/admin/channels/:id', requireAdmin, validateChannel, (req, res) => {
   const updated = channelManager.updateChannel(req.params.id, req.body);
   if (!updated) return res.status(404).json({ error: 'Channel not found' });
   res.json(updated);
@@ -207,9 +235,8 @@ router.post('/admin/sdp/upload', requireAdmin, uploadSdp.single('sdpfile'), (req
   res.status(400).json({ error: err.message });
 });
 
-router.post('/admin/sdp/save', requireAdmin, (req, res) => {
+router.post('/admin/sdp/save', requireAdmin, validateSdpSave, (req, res) => {
   const { filename, content } = req.body;
-  if (!filename || !content) return res.status(400).json({ error: 'filename et content requis' });
   const safe = filename.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/\.sdp$/i, '') + '.sdp';
   if (!fs.existsSync(sdpDir)) fs.mkdirSync(sdpDir, { recursive: true });
   const filePath = path.join(sdpDir, safe);
@@ -217,7 +244,7 @@ router.post('/admin/sdp/save', requireAdmin, (req, res) => {
   res.json({ filename: safe, path: `/app/sdp/${safe}`, size: content.length });
 });
 
-router.delete('/admin/sdp/:filename', requireAdmin, (req, res) => {
+router.delete('/admin/sdp/:filename', requireAdmin, validateFilename, (req, res) => {
   const safe = req.params.filename.replace(/[^a-zA-Z0-9._-]/g, '_');
   const filePath = path.join(sdpDir, safe);
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Fichier introuvable' });
@@ -226,14 +253,30 @@ router.delete('/admin/sdp/:filename', requireAdmin, (req, res) => {
 });
 
 router.get('/admin/audio/list', requireAdmin, (req, res) => {
-  if (!fs.existsSync(audioDir)) return res.json([]);
-  const files = fs.readdirSync(audioDir)
-    .filter(f => /\.(mp3|wav|ogg|flac|aac|m4a|opus)$/i.test(f))
-    .map(f => ({
-      filename: f,
-      path: `/app/uploads/audio/${f}`,
-      size: fs.statSync(path.join(audioDir, f)).size,
-    }));
+  const audioExt = /\.(mp3|wav|ogg|flac|aac|m4a|opus)$/i;
+  const files = [];
+
+  if (fs.existsSync(audioDir)) {
+    fs.readdirSync(audioDir)
+      .filter(f => audioExt.test(f))
+      .forEach(f => files.push({
+        filename: f,
+        path: `/app/uploads/audio/${f}`,
+        size: fs.statSync(path.join(audioDir, f)).size,
+      }));
+  }
+
+  const helpDir = path.join(__dirname, '../../public/audio/help');
+  if (fs.existsSync(helpDir)) {
+    fs.readdirSync(helpDir)
+      .filter(f => audioExt.test(f))
+      .forEach(f => files.push({
+        filename: `[aide] ${f}`,
+        path: `/app/public/audio/help/${f}`,
+        size: fs.statSync(path.join(helpDir, f)).size,
+      }));
+  }
+
   res.json(files);
 });
 
@@ -249,7 +292,7 @@ router.post('/admin/audio/upload', requireAdmin, (req, res) => {
   });
 });
 
-router.delete('/admin/audio/:filename', requireAdmin, (req, res) => {
+router.delete('/admin/audio/:filename', requireAdmin, validateFilename, (req, res) => {
   const safe = req.params.filename.replace(/[^a-zA-Z0-9._-]/g, '_');
   const filePath = path.join(audioDir, safe);
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Fichier introuvable' });
@@ -257,36 +300,76 @@ router.delete('/admin/audio/:filename', requireAdmin, (req, res) => {
   res.json({ success: true });
 });
 
-router.get('/admin/sources/list', requireAdmin, (req, res) => {
-  const { execSync } = require('child_process');
-  let alsaDevices = [];
-  let pulseDevices = [];
-  try {
-    const raw = execSync('arecord -l 2>/dev/null').toString();
-    const lines = raw.split('\n').filter(l => l.startsWith('card'));
-    alsaDevices = lines.map(l => {
-      const m = l.match(/card (\d+):.*\[(.+)\].*device (\d+):.*\[(.+)\]/);
-      if (!m) return null;
-      return { type: 'alsa', card: parseInt(m[1]), device: parseInt(m[3]), name: `${m[2]} - ${m[4]}` };
-    }).filter(Boolean);
-  } catch (e) {}
-  try {
-    const raw = execSync('pactl list sources short 2>/dev/null').toString();
-    const lines = raw.split('\n').filter(Boolean);
-    pulseDevices = lines.map(l => {
-      const parts = l.split('\t');
-      return { type: 'pulse', device: parts[1], name: parts[1] };
-    }).filter(d => d.device);
-  } catch (e) {}
-  res.json({ alsa: alsaDevices, pulse: pulseDevices });
+router.get('/admin/sources/list', adminLimiter, requireAdmin, (req, res) => {
+  // Exécution asynchrone pour ne pas bloquer la boucle d'événements Node.js
+  const results = { alsa: [], pulse: [] };
+  let pending = 2;
+  const done = () => { if (--pending === 0) res.json(results); };
+
+  exec('arecord -l 2>/dev/null', { timeout: 5000 }, (err, stdout) => {
+    if (!err && stdout) {
+      results.alsa = stdout.split('\n')
+        .filter(l => l.startsWith('card'))
+        .map(l => {
+          const m = l.match(/card (\d+):.*\[(.+)\].*device (\d+):.*\[(.+)\]/);
+          if (!m) return null;
+          return { type: 'alsa', card: parseInt(m[1]), device: parseInt(m[3]), name: `${m[2]} - ${m[4]}` };
+        }).filter(Boolean);
+    }
+    done();
+  });
+
+  exec('pactl list sources short 2>/dev/null', { timeout: 5000 }, (err, stdout) => {
+    if (!err && stdout) {
+      results.pulse = stdout.split('\n').filter(Boolean).map(l => {
+        const parts = l.split('\t');
+        return { type: 'pulse', device: parts[1], name: parts[1] };
+      }).filter(d => d.device);
+    }
+    done();
+  });
 });
 
-router.post('/admin/auth', (req, res) => {
+// Login : seul endpoint qui accepte le mot de passe — retourne un token HMAC signé
+router.post('/admin/auth', authLimiter, async (req, res) => {
   const { password } = req.body;
-  if (password !== config.security.adminPassword) {
-    return res.status(401).json({ error: 'Incorrect password' });
+  if (!password) return res.status(400).json({ error: 'Password required' });
+  try {
+    const ok = await authManager.verifyPassword(password);
+    if (!ok) {
+      // Délai constant pour éviter les timing attacks
+      await new Promise(r => setTimeout(r, 300));
+      return res.status(401).json({ error: 'Incorrect password' });
+    }
+    // Génère un token HMAC à durée limitée (8h par défaut)
+    const token = tokenManager.generate();
+    res.json({ success: true, token, expiresIn: tokenManager.TOKEN_TTL_MS });
+  } catch {
+    res.status(500).json({ error: 'Internal error' });
   }
-  res.json({ success: true, token: config.security.adminPassword });
+});
+
+// Changement de mot de passe — nécessite token valide + vérification mot de passe actuel
+router.post('/admin/password', authLimiter, requireAdmin, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'currentPassword and newPassword are required' });
+  }
+  if (newPassword.length < 8) {
+    return res.status(400).json({ error: 'New password must be at least 8 characters' });
+  }
+  try {
+    const ok = await authManager.verifyPassword(currentPassword);
+    if (!ok) {
+      await new Promise(r => setTimeout(r, 300));
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    await authManager.updatePassword(newPassword);
+    console.log('[Admin] Mot de passe modifié en mémoire (runtime only)');
+    res.json({ success: true, message: 'Password updated for current session' });
+  } catch {
+    res.status(500).json({ error: 'Internal error' });
+  }
 });
 
 module.exports = router;

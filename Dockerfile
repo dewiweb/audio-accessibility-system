@@ -7,8 +7,9 @@ RUN apk add --no-cache \
     openssl \
     && rm -rf /var/cache/apk/*
 
-# Set timezone
+# Set timezone and enforce production security checks
 ENV TZ=Europe/Paris
+ENV NODE_ENV=production
 
 WORKDIR /app
 

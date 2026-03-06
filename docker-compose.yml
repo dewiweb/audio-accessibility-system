@@ -11,15 +11,27 @@ services:
 
     environment:
       - NODE_ENV=production
-      - PORT=8080
       - HOST=0.0.0.0
+      - HTTPS_PORT=8443
 
-      # === SÉCURITÉ ===
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-changeme}
-      - SESSION_SECRET=${SESSION_SECRET:-change-this-secret}
+      # === TLS ===
+      # CN du certificat auto-signé = IP ou nom d'hôte du serveur sur le réseau salle
+      - TLS_CN=${TLS_CN:-192.168.100.251}
 
-      # === URL PUBLIQUE (IP du serveur sur le réseau WiFi salle) ===
-      - PUBLIC_URL=${PUBLIC_URL:-http://192.168.100.251:8080}
+      # === SÉCURITÉ (OBLIGATOIRE — valeurs par défaut refusées en production) ===
+      # Générer SESSION_SECRET avec : openssl rand -hex 32
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?Définir ADMIN_PASSWORD dans le fichier .env}
+      - SESSION_SECRET=${SESSION_SECRET:?Définir SESSION_SECRET (min 32 chars) dans le fichier .env}
+      - BCRYPT_ROUNDS=${BCRYPT_ROUNDS:-12}
+      # Durée de validité du token admin en ms (défaut: 8h)
+      - ADMIN_TOKEN_TTL_MS=${ADMIN_TOKEN_TTL_MS:-28800000}
+
+      # === RATE LIMITING (anti brute-force) ===
+      - RATE_LIMIT_AUTH_WINDOW_MS=${RATE_LIMIT_AUTH_WINDOW_MS:-900000}
+      - RATE_LIMIT_AUTH_MAX=${RATE_LIMIT_AUTH_MAX:-10}
+
+      # === URL PUBLIQUE (URL HTTPS du serveur sur le réseau WiFi salle) ===
+      - PUBLIC_URL=${PUBLIC_URL:-https://192.168.100.251:8443}
 
       # === AUDIO HLS ===
       - HLS_SEGMENT_DURATION=1
@@ -31,20 +43,22 @@ services:
       # Tampon jitter réseau en millisecondes (augmenter si glitches)
       - RTP_BUFFER_MS=200
       # Interface réseau pour le multicast (laisser vide = auto)
-      # ex: MULTICAST_INTERFACE=192.168.1.100
-      - MULTICAST_INTERFACE=${MULTICAST_INTERFACE:-192.168.100.251}
+      - MULTICAST_INTERFACE=${MULTICAST_INTERFACE:-}
 
     volumes:
-      # Persistance des configurations de canaux
+      # Persistance des configurations de canaux et fichiers audio uploadés
       - audio-data:/app/uploads
       # Fichiers SDP exportés depuis la console Dante/AES67
       - ./sdp:/app/sdp:ro
       # Fichiers audio locaux (optionnel)
       - ./audio:/app/audio:ro
+      # Certificats TLS persistants (évite la régénération à chaque redémarrage)
+      - audio-certs:/app/certs
 
-    # Exposer le port HLS/Web (redondant avec host network, mais documenté)
-    # ports:  # Commenté car network_mode: host
-    #   - "3000:3000"
+    # network_mode: host — ports commentés (non applicables en mode host)
+    # Pour déploiement sans host network (sans AES67 multicast), décommenter :
+    # ports:
+    #   - "8443:8443"
 
     logging:
       driver: json-file
@@ -53,12 +67,14 @@ services:
         max-file: "3"
 
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/channels"]
+      test: ["CMD", "wget", "-qO-", "--no-check-certificate", "https://localhost:8443/api/channels"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 15s
+      start_period: 20s
 
 volumes:
   audio-data:
+    driver: local
+  audio-certs:
     driver: local
