@@ -2080,10 +2080,17 @@ const ViewState = {
   
   // Cache toutes les vues
   hideAll() {
-    document.getElementById('view-overview').classList.add('hidden-screen');
-    document.getElementById('view-channel').classList.remove('visible');
-    document.getElementById('view-system').classList.add('view-hidden');
-    document.getElementById('view-system').classList.remove('view-visible');
+    const overviewView = document.getElementById('view-overview');
+    if (overviewView) overviewView.classList.add('hidden-screen');
+    
+    const channelView = document.getElementById('view-channel');
+    if (channelView) channelView.classList.remove('visible');
+    
+    const systemView = document.getElementById('view-system');
+    if (systemView) {
+      systemView.classList.add('view-hidden');
+      systemView.classList.remove('view-visible');
+    }
   },
   
   // Affiche une vue spécifique avec état cohérent
@@ -2115,8 +2122,22 @@ const ViewState = {
   showOverview() {
     selectedChannelId = null;
     renderSidebar();
-    document.getElementById('view-overview').classList.remove('hidden-screen');
-    document.getElementById('content-title').textContent = 'Vue d\'ensemble';
+    
+    const overviewView = document.getElementById('view-overview');
+    if (overviewView) overviewView.classList.remove('hidden-screen');
+    
+    const channelView = document.getElementById('view-channel');
+    if (channelView) channelView.classList.remove('visible');
+    
+    const systemView = document.getElementById('view-system');
+    if (systemView) {
+      systemView.classList.add('view-hidden');
+      systemView.classList.remove('view-visible');
+    }
+    
+    const titleEl = document.getElementById('content-title');
+    if (titleEl) titleEl.textContent = 'Vue d\'ensemble';
+    
     updateBreadcrumbs(this.VIEWS.OVERVIEW);
     updateHeaderActions();
   },
@@ -2130,8 +2151,11 @@ const ViewState = {
       this.showOverview();
       return;
     }
-    document.getElementById('view-channel').classList.add('visible');
-    document.getElementById('content-title').textContent = ch.name;
+    const channelView = document.getElementById('view-channel');
+    if (channelView) channelView.classList.add('visible');
+    
+    const titleEl = document.getElementById('content-title');
+    if (titleEl) titleEl.textContent = ch.name;
     updateBreadcrumbs(this.VIEWS.CHANNEL, ch.name);
     updateHeaderActions();
     renderChannelDetail(ch);
@@ -2139,9 +2163,15 @@ const ViewState = {
   
   showSystem() {
     _sysViewOpen = true;
-    document.getElementById('view-system').classList.remove('view-hidden');
-    document.getElementById('view-system').classList.add('view-visible');
-    document.getElementById('content-title').textContent = 'Système';
+    const systemView = document.getElementById('view-system');
+    if (systemView) {
+      systemView.classList.remove('view-hidden');
+      systemView.classList.add('view-visible');
+    }
+    
+    const titleEl = document.getElementById('content-title');
+    if (titleEl) titleEl.textContent = 'Système';
+    
     updateBreadcrumbs(this.VIEWS.SYSTEM);
     updateHeaderActions();
     refreshSystemView();
@@ -2150,8 +2180,11 @@ const ViewState = {
   
   hideSystem() {
     _sysViewOpen = false;
-    document.getElementById('view-system').classList.add('view-hidden');
-    document.getElementById('view-system').classList.remove('view-visible');
+    const systemView = document.getElementById('view-system');
+    if (systemView) {
+      systemView.classList.add('view-hidden');
+      systemView.classList.remove('view-visible');
+    }
     clearInterval(_sysRefreshTimer);
     _sysRefreshTimer = null;
   }
@@ -2436,7 +2469,7 @@ function openModalWithFocusTrap(modalEl, triggerEl) {
 function closeModalWithFocusTrap(modalEl) {
   modalEl.classList.remove('open');
   // Restaure le focus sur l'élément qui avait ouvert le modal
-  if (_focusTrapTrigger) {
+  if (_focusTrapTrigger && typeof _focusTrapTrigger.focus === 'function') {
     setTimeout(() => _focusTrapTrigger.focus(), 50);
   }
   _focusTrapModal = null;
