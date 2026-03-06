@@ -26,6 +26,23 @@ services:
       TLS_CN: "192.168.100.251"
       HTTPS_PORT: "9443"
 
+      # ── Double interface réseau (production) ──────────────────────────────
+      # Décommenter et adapter pour séparer réseau régie et WiFi public.
+      # Laisser commenté = mode single-interface (dev / fallback).
+      #
+      # ADMIN_HOST  : IP de l'interface réseau régie (admin + AES67)
+      # ADMIN_PORT  : port HTTPS admin (défaut = HTTPS_PORT)
+      # PUBLIC_HOST : IP de l'interface WiFi public (écouteurs HLS)
+      # PUBLIC_PORT : port HTTPS public (défaut = HTTPS_PORT)
+      # PUBLIC_LISTENER_URL : URL communiquée aux spectateurs (QR code, etc.)
+      #
+      # Exemple :
+      # ADMIN_HOST: "192.168.100.251"   # interface régie QSYS
+      # ADMIN_PORT: "9443"
+      # PUBLIC_HOST: "10.0.0.1"         # interface WiFi salle
+      # PUBLIC_PORT: "9443"
+      # PUBLIC_LISTENER_URL: "https://10.0.0.1:9443"
+
       # HLS streaming
       # Segment 4s : 50 req/s pour 200 clients au lieu de 200 req/s avec 1s
       # Latence live +3s (7s au lieu de 4s) — acceptable pour audiodescription

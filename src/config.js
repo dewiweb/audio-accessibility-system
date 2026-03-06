@@ -5,6 +5,16 @@ module.exports = {
   server: {
     port: parseInt(process.env.PORT) || 3000,
     host: process.env.HOST || '0.0.0.0',
+    // Double interface réseau :
+    // ADMIN_HOST = IP interface régie (admin + AES67). Défaut = HOST.
+    // PUBLIC_HOST = IP interface WiFi public (HLS écouteurs). Défaut = HOST (mode single).
+    // ADMIN_PORT / PUBLIC_PORT permettent des ports différents si besoin.
+    adminHost:  process.env.ADMIN_HOST  || process.env.HOST || '0.0.0.0',
+    publicHost: process.env.PUBLIC_HOST || process.env.HOST || '0.0.0.0',
+    adminPort:  parseInt(process.env.ADMIN_PORT)  || parseInt(process.env.HTTPS_PORT) || 9443,
+    publicPort: parseInt(process.env.PUBLIC_PORT) || parseInt(process.env.HTTPS_PORT) || 9443,
+    // URL publique exposée aux écouteurs (peut différer de l'URL admin)
+    publicListenerUrl: process.env.PUBLIC_LISTENER_URL || process.env.PUBLIC_URL || null,
   },
   security: {
     adminPassword: process.env.ADMIN_PASSWORD || 'admin1234',
