@@ -44,15 +44,18 @@ services:
       # PUBLIC_LISTENER_URL: "https://10.0.0.1:9443"
 
       # HLS streaming
-      # Segment 4s : 50 req/s pour 200 clients au lieu de 200 req/s avec 1s
-      # Latence live +3s (7s au lieu de 4s) — acceptable pour audiodescription
-      HLS_SEGMENT_DURATION: "4"
-      HLS_LIST_SIZE: "4"
+      # Segment 1s (live AES67) : latence cible ~3-4s
+      # Charge : ~6 req/s pour 200 clients (vs 50 req/s avec 4s) — LAN, negligeable
+      # Augmenter à 2-4s si charge CPU ou réseau WiFi trop élevée
+      HLS_SEGMENT_DURATION: "1"
+      HLS_LIST_SIZE: "6"
       AUDIO_SAMPLE_RATE: "48000"
       AUDIO_BITRATE: "128k"
 
-      # AES67: tampon jitter en ms
-      RTP_BUFFER_MS: "200"
+      # AES67 : tampon jitter RTP en ms
+      # 50ms suffit sur LAN dédié salle de spectacle
+      # Augmenter à 100-200ms si dropouts ou réseau partagé
+      RTP_BUFFER_MS: "50"
       # Interface réseau du serveur Docker vers le réseau AES67 (QSYS)
       MULTICAST_INTERFACE: "192.168.100.251"
 

@@ -19,11 +19,12 @@ services:
       PUBLIC_URL: "https://192.168.100.251"
 
       HLS_SEGMENT_DURATION: "1"
-      HLS_LIST_SIZE: "3"
+      HLS_LIST_SIZE: "6"
       AUDIO_SAMPLE_RATE: "48000"
       AUDIO_BITRATE: "128k"
 
-      RTP_BUFFER_MS: "200"
+      # 50ms suffit sur LAN dédié — augmenter à 100-200ms si dropouts
+      RTP_BUFFER_MS: "50"
       MULTICAST_INTERFACE: "192.168.100.251"
 
     volumes:

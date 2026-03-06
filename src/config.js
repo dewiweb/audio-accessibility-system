@@ -40,13 +40,15 @@ module.exports = {
   },
   audio: {
     ffmpegPath: process.env.FFMPEG_PATH || 'ffmpeg',
-    // 4s par défaut : 50 req/s pour 200 clients au lieu de 200 req/s avec 1s
-    hlsSegmentDuration: parseInt(process.env.HLS_SEGMENT_DURATION) || 4,
-    hlsListSize: parseInt(process.env.HLS_LIST_SIZE) || 4,
+    // 1s par défaut (live AES67) : latence ~3-4s vs ~12-20s avec 4s
+    // VOD fichier et loop file utilisent la même valeur mais la latence n'est pas critique
+    hlsSegmentDuration: parseInt(process.env.HLS_SEGMENT_DURATION) || 1,
+    hlsListSize: parseInt(process.env.HLS_LIST_SIZE) || 6,
     sampleRate: parseInt(process.env.AUDIO_SAMPLE_RATE) || 48000,
     bitrate: process.env.AUDIO_BITRATE || '128k',
-    // AES67/RTP buffer in milliseconds (compensates network jitter)
-    rtpBufferMs: parseInt(process.env.RTP_BUFFER_MS) || 200,
+    // AES67/RTP jitter buffer en ms — 50ms suffit sur LAN dédié salle de spectacle
+    // Augmenter à 200ms si le réseau est partagé ou si des dropouts apparaissent
+    rtpBufferMs: parseInt(process.env.RTP_BUFFER_MS) || 50,
     // Multicast interface (network interface name or IP)
     multicastInterface: process.env.MULTICAST_INTERFACE || '',
   },

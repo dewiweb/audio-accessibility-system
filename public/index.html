@@ -630,10 +630,12 @@
     const liveConfig = {
       ...baseConfig,
       lowLatencyMode: false,
-      backBufferLength: 8,
+      backBufferLength: 4,
       liveSyncDurationCount: 3,
-      liveMaxLatencyDurationCount: 6,
+      liveMaxLatencyDurationCount: 5,
       liveDurationInfinity: true,
+      maxBufferLength: 8,
+      maxMaxBufferLength: 12,
     };
     const hls = new Hls(isVod || isLoopFile ? baseConfig : liveConfig);
     hls.loadSource(url);
