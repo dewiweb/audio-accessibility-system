@@ -587,7 +587,9 @@
       if (!resp.ok) throw new Error(`Erreur serveur (${resp.status})`);
       const ch = await resp.json();
 
-      if (ch.streamMode === 'webrtc' && ch.whepUrl && typeof RTCPeerConnection !== 'undefined') {
+      if (ch.audioUrl) {
+        startLoopAudio(ch.audioUrl, ch);
+      } else if (ch.streamMode === 'webrtc' && ch.whepUrl && typeof RTCPeerConnection !== 'undefined') {
         await startWhep(ch.whepUrl, ch);
       } else if (ch.streamMode === 'webrtc' && ch.whepUrl) {
         showToast('WebRTC non supporté — bascule sur HLS si disponible', 3000);
@@ -681,6 +683,18 @@
     }
   }
 
+  function startLoopAudio(url, ch) {
+    if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+    stopWhep();
+    audio.loop = true;
+    audio.src = url;
+    audio.play().catch((err) => {
+      console.warn('[PWA] autoplay blocked:', err.message);
+      showToast('Touchez l\'écran pour activer le son', 3000);
+    });
+    updatePlayerUI(ch);
+  }
+
   function startHls(url, ch) {
     if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
     const isVod = ch && ch.sourceType === 'file' && !ch.sourceLoop;
@@ -767,6 +781,7 @@
   function stopPlayback() {
     stopWhep();
     if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+    audio.loop = false;
     audio.src = '';
     if (ws && ws.readyState === 1) {
       ws.send(JSON.stringify({ type: 'leave:channel', channelId: currentChannelId }));

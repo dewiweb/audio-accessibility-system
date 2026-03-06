@@ -103,6 +103,7 @@ router.get('/channels/:id', (req, res) => {
   const ch = channelManager.getChannel(req.params.id);
   if (!ch || !ch.active) return res.status(404).json({ error: 'Channel not found' });
   const isWebRtc = ch.source?.type === 'aes67' && ch.source?.streamMode === 'webrtc';
+  const isLoopFile = ch.source?.type === 'file' && ch.source?.loop === true;
   const resp = {
     id: ch.id,
     name: ch.name,
@@ -117,10 +118,44 @@ router.get('/channels/:id', (req, res) => {
   };
   if (isWebRtc) {
     resp.whepUrl = `/whep/${ch.id}`;
+  } else if (isLoopFile) {
+    resp.audioUrl = `/api/audio/${ch.id}`;
   } else {
     resp.hlsUrl = `/hls/${ch.id}/stream.m3u8`;
   }
   res.json(resp);
+});
+
+router.get('/audio/:id', (req, res) => {
+  const ch = channelManager.getChannel(req.params.id);
+  if (!ch || !ch.active) return res.status(404).json({ error: 'Channel not found' });
+  if (ch.source?.type !== 'file' || !ch.source?.loop) return res.status(400).json({ error: 'Not a loop file channel' });
+  const filePath = path.resolve(audioDir, path.basename(ch.source.file));
+  if (!filePath.startsWith(path.resolve(audioDir))) return res.status(403).json({ error: 'Forbidden' });
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
+  const stat = fs.statSync(filePath);
+  const ext = path.extname(filePath).toLowerCase();
+  const mimeMap = { '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.ogg': 'audio/ogg', '.flac': 'audio/flac', '.aac': 'audio/aac', '.m4a': 'audio/mp4', '.opus': 'audio/ogg; codecs=opus' };
+  const mime = mimeMap[ext] || 'application/octet-stream';
+  const range = req.headers.range;
+  if (range) {
+    const [startStr, endStr] = range.replace(/bytes=/, '').split('-');
+    const start = parseInt(startStr, 10);
+    const end = endStr ? parseInt(endStr, 10) : stat.size - 1;
+    if (start >= stat.size || end >= stat.size) {
+      return res.status(416).set('Content-Range', `bytes */${stat.size}`).end();
+    }
+    res.status(206).set({
+      'Content-Range': `bytes ${start}-${end}/${stat.size}`,
+      'Accept-Ranges': 'bytes',
+      'Content-Length': end - start + 1,
+      'Content-Type': mime,
+    });
+    fs.createReadStream(filePath, { start, end }).pipe(res);
+  } else {
+    res.set({ 'Content-Length': stat.size, 'Content-Type': mime, 'Accept-Ranges': 'bytes' });
+    fs.createReadStream(filePath).pipe(res);
+  }
 });
 
 router.get('/qrcode', async (req, res) => {
