@@ -127,17 +127,20 @@ router.get('/qrcode', async (req, res) => {
   try {
     // En mode double interface, le QR code pointe sur l'URL WiFi public (écoute)
     // sinon sur PUBLIC_URL (mode single-interface)
-    const url = process.env.PUBLIC_LISTENER_URL || config.publicUrl;
+    const baseUrl = process.env.PUBLIC_LISTENER_URL || config.publicUrl;
     const adminUrl = config.publicUrl;
-    
+    // /welcome force l'acceptation du certificat TLS auto-signé dans tous les contextes
+    // (navigation ET XHR) avant de rediriger vers la PWA — évite les 404 SSL sur les .ts
+    const url = baseUrl ? baseUrl.replace(/\/$/, '') + '/welcome' : null;
+
     console.log('[QR Code] Generating for URL:', url);
     console.log('[QR Code] Public URL config:', config.publicUrl);
-    
+
     if (!url) {
       console.error('[QR Code] No URL configured');
       return res.status(500).json({ error: 'No URL configured for QR code' });
     }
-    
+
     const qr = await QRCode.toDataURL(url, {
       width: 300,
       margin: 2,

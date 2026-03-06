@@ -241,6 +241,70 @@ function serveHtmlWithNonce(htmlFile) {
 // Serve listener app
 app.get('/', serveHtmlWithNonce('index.html'));
 
+// Page d'acceptation du certificat TLS — le QR code pointe ici en premier.
+// Charge /api/channels en XHR pour forcer l'approbation SSL dans tous les contextes
+// (navigation + XHR sont deux contextes distincts sur iOS/Android).
+// Sans cette étape, HLS.js échoue silencieusement sur les segments .ts.
+app.get('/welcome', (req, res) => {
+  const nonce = res.locals.cspNonce;
+  const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1e1b4b">
+<title>Audio Accessibility</title>
+<style nonce="${nonce}">
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, sans-serif; background: #1e1b4b; color: #fff;
+         display: flex; flex-direction: column; align-items: center;
+         justify-content: center; min-height: 100dvh; padding: 2rem; text-align: center; }
+  .icon { font-size: 4rem; margin-bottom: 1.5rem; }
+  h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: .75rem; }
+  p  { font-size: 1rem; color: #c7d2fe; margin-bottom: 1.5rem; line-height: 1.5; }
+  .btn { display: inline-block; background: #4f46e5; color: #fff; padding: .9rem 2rem;
+         border-radius: 1rem; font-size: 1.1rem; font-weight: 600; text-decoration: none;
+         border: none; cursor: pointer; width: 100%; max-width: 320px; }
+  .btn:active { opacity: .8; }
+  .note { font-size: .85rem; color: #818cf8; margin-top: 1rem; }
+  #status { margin-top: 1.5rem; font-size: .9rem; color: #6ee7b7; min-height: 1.2em; }
+</style>
+</head>
+<body>
+<div class="icon" role="img" aria-label="casque audio">🎧</div>
+<h1>Système d'aide à l'écoute</h1>
+<p>Appuyez sur le bouton ci-dessous.<br>Si votre navigateur affiche un avertissement de sécurité, appuyez sur <strong>Continuer</strong> ou <strong>Avancé → Accéder</strong>.</p>
+<button class="btn" id="btn" aria-label="Accéder aux canaux audio">Accéder aux canaux</button>
+<div id="status" role="status" aria-live="polite"></div>
+<p class="note">Connexion sécurisée (certificat local)</p>
+<script nonce="${nonce}">
+(function() {
+  var btn = document.getElementById('btn');
+  var status = document.getElementById('status');
+  function tryConnect() {
+    status.textContent = 'Vérification…';
+    btn.disabled = true;
+    fetch('/api/channels', { cache: 'no-store' })
+      .then(function(r) {
+        if (r.ok) { status.textContent = 'Connexion établie, redirection…'; window.location.replace('/'); }
+        else { fail(); }
+      })
+      .catch(function() {
+        status.textContent = 'Certificat non approuvé — ouvrez le lien ci-dessous puis revenez.';
+        btn.disabled = false;
+        btn.textContent = 'Réessayer';
+      });
+  }
+  btn.addEventListener('click', tryConnect);
+  tryConnect();
+}());
+</script>
+</body></html>`;
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-store');
+  res.send(html);
+});
+
 // Serve admin app — rediriger si query params présents (credentials en GET = sécurité + boucle)
 // En mode double interface, /admin n'est monté que sur le serveur admin (réseau régie)
 app.get('/admin', (req, res, next) => {
