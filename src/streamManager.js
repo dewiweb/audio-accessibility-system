@@ -557,6 +557,9 @@ class StreamManager extends EventEmitter {
         const commonOpts = [
           '-protocol_whitelist file,udp,rtp,crypto,data',
           `-buffer_size ${bufSize}`,
+          '-probesize 32',           // 32 bytes : évite l'analyse initiale de 5s
+          '-analyzeduration 0',      // 0µs : démarre immédiatement sans attendre
+          '-reorder_queue_size 0',   // pas de réordonnancement RTP sur LAN dédié
         ];
         if (localaddr) commonOpts.push(`-localaddr ${localaddr}`);
 

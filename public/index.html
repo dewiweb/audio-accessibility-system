@@ -652,7 +652,7 @@
     await new Promise(resolve => {
       if (pc.iceGatheringState === 'complete') { resolve(); return; }
       pc.onicegatheringchange = () => { if (pc.iceGatheringState === 'complete') resolve(); };
-      setTimeout(resolve, 2000);
+      setTimeout(resolve, 200);
     });
 
     const r = await fetch(whepUrl, {

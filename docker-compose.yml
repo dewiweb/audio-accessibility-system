@@ -41,7 +41,7 @@ services:
 
       # === AES67 / RTP ===
       # Tampon jitter réseau en millisecondes (augmenter si glitches)
-      - RTP_BUFFER_MS=50
+      - RTP_BUFFER_MS=20
       # Interface réseau pour le multicast (laisser vide = auto)
       - MULTICAST_INTERFACE=${MULTICAST_INTERFACE:-}
 
