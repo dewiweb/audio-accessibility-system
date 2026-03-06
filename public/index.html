@@ -724,10 +724,18 @@
         showToast('Touchez l\'écran pour activer le son', 3000);
       });
     });
+    const resumeIfPaused = () => {
+      if (audio.paused) audio.play().catch(() => {});
+    };
+    audio.addEventListener('stalled', resumeIfPaused);
+    hls.on(Hls.Events.DESTROYING, () => audio.removeEventListener('stalled', resumeIfPaused));
     let networkErrorCount = 0;
     hls.on(Hls.Events.ERROR, (event, data) => {
       console.error('[HLS Error]', data.type, data.details, 'fatal:', data.fatal, 'url:', data.url);
-      if (!data.fatal) return;
+      if (!data.fatal) {
+        if (data.details === Hls.ErrorDetails.BUFFER_STALLED_ERROR) resumeIfPaused();
+        return;
+      }
       if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
         networkErrorCount++;
         if (networkErrorCount <= 3) {
