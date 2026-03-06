@@ -187,12 +187,13 @@ function serveHtmlWithNonce(htmlFile) {
     fs.readFile(filePath, 'utf8', (err, html) => {
       if (err) return res.status(500).json({ error: 'Internal server error' });
       const nonce = res.locals.cspNonce;
-      // Injecte le nonce sur toutes les balises <style> et <script> (avec ou sans src)
-      // script-src avec nonce exige le nonce sur TOUS les scripts, y compris externes
+      // Injecte le nonce sur toutes les balises <style>, <script> et <link rel="stylesheet">
+      // script-src et style-src avec nonce exigent le nonce sur TOUS les éléments, y compris externes
       const patched = html
         .replace(/<style>/g,  `<style nonce="${nonce}">`)
         .replace(/<script>/g, `<script nonce="${nonce}">`)
-        .replace(/<script src=/g, `<script nonce="${nonce}" src=`);
+        .replace(/<script src=/g, `<script nonce="${nonce}" src=`)
+        .replace(/<link rel="stylesheet"/g, `<link rel="stylesheet" nonce="${nonce}"`);
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.setHeader('Cache-Control', 'no-store');
       res.send(patched);
