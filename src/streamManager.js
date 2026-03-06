@@ -8,13 +8,18 @@ const config = require('./config');
 const channelManager = require('./channelManager');
 
 function writeLoopPCM(stdinStream, filePath, sampleRate, onStop) {
-  const ffmpegPath = require('fluent-ffmpeg').ffmpegPath || 'ffmpeg';
+  const ffmpegExec = config.audio.ffmpegPath || 'ffmpeg';
   let running = true;
   let currentProc = null;
 
+  const onDrain = () => {
+    if (currentProc && currentProc.stdout) currentProc.stdout.resume();
+  };
+  stdinStream.on('drain', onDrain);
+
   function pumpLoop() {
     if (!running) return;
-    const proc = spawn(ffmpegPath, [
+    const proc = spawn(ffmpegExec, [
       '-i', filePath,
       '-f', 's16le', '-ar', String(sampleRate), '-ac', '2',
       'pipe:1',
@@ -27,24 +32,16 @@ function writeLoopPCM(stdinStream, filePath, sampleRate, onStop) {
       if (!ok) proc.stdout.pause();
     });
 
-    stdinStream.once('drain', () => {
-      if (currentProc && currentProc.stdout) currentProc.stdout.resume();
-    });
-
-    proc.on('close', () => {
-      if (running) pumpLoop();
-    });
-
-    proc.on('error', () => {
-      if (running) setTimeout(pumpLoop, 500);
-    });
+    proc.on('close', () => { if (running) pumpLoop(); });
+    proc.on('error', () => { if (running) setTimeout(pumpLoop, 200); });
   }
 
   pumpLoop();
 
   return () => {
     running = false;
-    if (currentProc) { try { currentProc.kill('SIGKILL'); } catch(_) {} }
+    stdinStream.off('drain', onDrain);
+    if (currentProc) { try { currentProc.kill('SIGKILL'); } catch (_) {} }
   };
 }
 
