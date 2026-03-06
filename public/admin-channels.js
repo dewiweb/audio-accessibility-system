@@ -201,8 +201,9 @@ function _initEditChannelMap(ch) {
 async function startStream(id) {
   log(`Démarrage stream canal ${id}...`);
   try {
-    await apiFetch(`/api/admin/channels/${id}/start`, { method: 'POST' });
-    log('Stream démarré', 'success');
+    const r = await apiFetch(`/api/admin/channels/${id}/start`, { method: 'POST' });
+    if (r.status === 409) { log('Stream déjà actif', 'warn'); }
+    else { log('Stream démarré', 'success'); }
     loadChannels();
   } catch (e) { log('Erreur: ' + e.message, 'error'); }
 }

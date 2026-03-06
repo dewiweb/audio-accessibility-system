@@ -206,6 +206,9 @@ router.delete('/admin/channels/:id', requireAdmin, (req, res) => {
 router.post('/admin/channels/:id/start', requireAdmin, (req, res) => {
   const channel = channelManager.getChannel(req.params.id);
   if (!channel) return res.status(404).json({ error: 'Channel not found' });
+  if (streamManager.activeStreams.has(req.params.id)) {
+    return res.status(409).json({ error: 'Stream already active' });
+  }
   try {
     const result = streamManager.startStream(req.params.id, channel.source);
     res.json(result);
