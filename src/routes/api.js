@@ -122,11 +122,22 @@ router.get('/qrcode', async (req, res) => {
     // sinon sur PUBLIC_URL (mode single-interface)
     const url = process.env.PUBLIC_LISTENER_URL || config.publicUrl;
     const adminUrl = config.publicUrl;
+    
+    console.log('[QR Code] Generating for URL:', url);
+    console.log('[QR Code] Public URL config:', config.publicUrl);
+    
+    if (!url) {
+      console.error('[QR Code] No URL configured');
+      return res.status(500).json({ error: 'No URL configured for QR code' });
+    }
+    
     const qr = await QRCode.toDataURL(url, {
       width: 300,
       margin: 2,
       color: { dark: '#1e1b4b', light: '#ffffff' },
     });
+    
+    console.log('[QR Code] Generated successfully');
     res.json({
       url,
       adminUrl: adminUrl !== url ? adminUrl : null,
@@ -134,6 +145,7 @@ router.get('/qrcode', async (req, res) => {
       qrcode: qr,
     });
   } catch (e) {
+    console.error('[QR Code] Error:', e);
     res.status(500).json({ error: e.message });
   }
 });

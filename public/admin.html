@@ -1005,12 +1005,33 @@ async function loadChannels() {
 
 async function loadQr() {
   try {
+    console.log('[QR Frontend] Loading QR code...');
     const r = await fetch('/api/qrcode');
-    if (!r.ok) return;
+    console.log('[QR Frontend] Response status:', r.status);
+    
+    if (!r.ok) {
+      const errorText = await r.text();
+      console.error('[QR Frontend] API error:', r.status, errorText);
+      const urlEl = document.getElementById('qr-url');
+      if (urlEl) urlEl.textContent = `Erreur ${r.status}: ${errorText}`;
+      return;
+    }
+    
     const data = await r.json();
-    document.getElementById('qr-img').src = data.qrcode;
+    console.log('[QR Frontend] QR data received:', data);
+    
+    const imgEl = document.getElementById('qr-img');
+    if (imgEl && data.qrcode) {
+      imgEl.src = data.qrcode;
+    } else {
+      console.error('[QR Frontend] No QR code data received');
+    }
+    
     const urlEl = document.getElementById('qr-url');
-    urlEl.textContent = data.url;
+    if (urlEl) {
+      urlEl.textContent = data.url;
+    }
+    
     // En mode double interface : indiquer que le QR pointe sur le WiFi public
     if (data.isDualNetwork && data.adminUrl) {
       const note = document.createElement('div');
@@ -1019,10 +1040,14 @@ async function loadQr() {
       urlEl.parentNode.insertBefore(note, urlEl.nextSibling);
       const adminNote = document.createElement('div');
       adminNote.style.cssText = 'font-size:11px;color:var(--text3);margin-top:2px';
-      adminNote.textContent = 'URL admin régie : ' + data.adminUrl;
-      note.parentNode.insertBefore(adminNote, note.nextSibling);
+      adminNote.textContent = `🔧 Admin : ${data.adminUrl}`;
+      urlEl.parentNode.insertBefore(adminNote, note.nextSibling);
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error('[QR Frontend] Error:', e);
+    const urlEl = document.getElementById('qr-url');
+    if (urlEl) urlEl.textContent = `Erreur: ${e.message}`;
+  }
 }
 
 function renderSidebar() {
