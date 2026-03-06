@@ -19,7 +19,7 @@ class ChannelManager extends EventEmitter {
       if (fs.existsSync(PERSIST_PATH)) {
         const data = JSON.parse(fs.readFileSync(PERSIST_PATH, 'utf8'));
         for (const ch of data) {
-          this.channels.set(ch.id, { ...ch, active: false, listenerCount: 0 });
+          this.channels.set(ch.id, { ...ch, active: false, listenerCount: 0, _wasActive: ch.active === true });
         }
         console.log(`[ChannelManager] Loaded ${this.channels.size} channel(s) from disk`);
       }
@@ -33,7 +33,7 @@ class ChannelManager extends EventEmitter {
       const dir = path.dirname(PERSIST_PATH);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
       const data = Array.from(this.channels.values()).map(ch => {
-        const { active, listenerCount, ...rest } = ch;
+        const { listenerCount, _wasActive, ...rest } = ch;
         return rest;
       });
       fs.writeFileSync(PERSIST_PATH, JSON.stringify(data, null, 2), 'utf8');
@@ -95,6 +95,10 @@ class ChannelManager extends EventEmitter {
 
   getAllChannels() {
     return Array.from(this.channels.values());
+  }
+
+  getChannelsToRestore() {
+    return Array.from(this.channels.values()).filter(ch => ch._wasActive === true);
   }
 
   getPublicChannels() {

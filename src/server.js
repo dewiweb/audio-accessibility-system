@@ -12,6 +12,8 @@ const config = require('./config');
 const authManager = require('./authManager');
 const apiRoutes = require('./routes/api');
 const wsManager = require('./wsManager');
+const channelManager = require('./channelManager');
+const streamManager = require('./streamManager');
 
 // Initialisation du hash bcrypt du mot de passe admin au démarrage
 authManager.init();
@@ -362,6 +364,20 @@ server.listen(adminPort, adminHost, () => {
   }
   console.log(`  Public  : ${config.publicUrl}`);
   console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
+
+  // Auto-restart des streams qui étaient actifs avant le redémarrage
+  const toRestore = channelManager.getChannelsToRestore();
+  if (toRestore.length > 0) {
+    console.log(`[Restore] ${toRestore.length} stream(s) à relancer...`);
+    for (const ch of toRestore) {
+      try {
+        streamManager.startStream(ch.id, ch.source);
+        console.log(`[Restore] Stream ${ch.id} (${ch.name}) relancé`);
+      } catch (e) {
+        console.warn(`[Restore] Échec stream ${ch.id}: ${e.message}`);
+      }
+    }
+  }
 });
 
 if (isDualNetwork && publicServer) {
