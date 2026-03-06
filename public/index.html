@@ -708,11 +708,12 @@
     const loopConfig = {
       ...baseConfig,
       liveDurationInfinity: true,
-      maxBufferLength: 20,
-      maxMaxBufferLength: 30,
-      backBufferLength: 8,
-      liveSyncDurationCount: 2,
-      liveMaxLatencyDurationCount: 6,
+      maxBufferLength: 30,
+      maxMaxBufferLength: 40,
+      backBufferLength: 16,
+      liveSyncDurationCount: 8,
+      liveMaxLatencyDurationCount: 9,
+      liveSyncOnStallEnabled: false,
     };
     const hlsCfg = isVod ? baseConfig : (isLoopFile ? loopConfig : liveConfig);
     const hls = new Hls(hlsCfg);
