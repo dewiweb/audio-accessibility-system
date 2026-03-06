@@ -130,8 +130,10 @@ router.get('/audio/:id', (req, res) => {
   const ch = channelManager.getChannel(req.params.id);
   if (!ch || !ch.active) return res.status(404).json({ error: 'Channel not found' });
   if (ch.source?.type !== 'file' || !ch.source?.loop) return res.status(400).json({ error: 'Not a loop file channel' });
-  const filePath = path.resolve(audioDir, path.basename(ch.source.file));
-  if (!filePath.startsWith(path.resolve(audioDir))) return res.status(403).json({ error: 'Forbidden' });
+  const rawPath = ch.source.path || ch.source.file || '';
+  const filePath = path.isAbsolute(rawPath) ? path.normalize(rawPath) : path.resolve(audioDir, path.basename(rawPath));
+  const allowedPrefixes = [path.resolve(audioDir), path.resolve(__dirname, '../../public/audio')];
+  if (!allowedPrefixes.some(p => filePath.startsWith(p))) return res.status(403).json({ error: 'Forbidden' });
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
   const stat = fs.statSync(filePath);
   const ext = path.extname(filePath).toLowerCase();
