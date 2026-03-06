@@ -301,8 +301,11 @@ class StreamManager extends EventEmitter {
           console.error(`[Stream ${channelId}] Move error:`, e.message);
         }
         const stream = this.activeStreams.get(channelId);
+        if (!stream) return; // stopStream() a été appelé pendant l'encodage
         if (stream) stream.proc = null;
-        if (!channelManager.isActive(channelId)) {
+        const ch = channelManager.getChannel(channelId);
+        const wasAlreadyActive = ch && ch.active;
+        if (!wasAlreadyActive) {
           // Première fois : rendre disponible
           console.log(`[Stream ${channelId}] Loop VOD ready (${loopCount} reps)`);
           channelManager.setActive(channelId, true);
@@ -536,22 +539,6 @@ class StreamManager extends EventEmitter {
       }
       default:
         throw new Error(`Unknown source type: ${source.type}`);
-    }
-  }
-
-  _pruneOldSegments(channelId, keepCount) {
-    const outputDir = path.join(config.paths.hlsOutput, channelId);
-    if (!fs.existsSync(outputDir)) return;
-    try {
-      const files = fs.readdirSync(outputDir)
-        .filter(f => f.endsWith('.ts'))
-        .sort();
-      const toDelete = files.slice(0, Math.max(0, files.length - keepCount - 2));
-      for (const f of toDelete) {
-        try { fs.unlinkSync(path.join(outputDir, f)); } catch (e) {}
-      }
-    } catch (e) {
-      console.warn(`[Stream ${channelId}] Prune error:`, e.message);
     }
   }
 
