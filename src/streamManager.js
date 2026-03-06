@@ -239,10 +239,16 @@ class StreamManager extends EventEmitter {
     }
     if (source.gain && source.gain !== 0) audioFilters.push(`volume=${source.gain}dB`);
 
+    // Segments 4s pour loop files : la latence n'est pas critique (fichier en boucle),
+    // mais un buffer suffisant est essentiel pour éviter les 404 sur réseau WiFi chargé.
+    // 4s × 6 segments = 24s de fenêtre — largement suffisant même sur WiFi congestionné.
+    const LOOP_SEGMENT_DURATION = 4;
+    const LOOP_LIST_SIZE = 6;
+
     const outputOptions = [
       '-f hls',
-      `-hls_time ${config.audio.hlsSegmentDuration}`,
-      `-hls_list_size ${config.audio.hlsListSize}`,
+      `-hls_time ${LOOP_SEGMENT_DURATION}`,
+      `-hls_list_size ${LOOP_LIST_SIZE}`,
       '-hls_flags delete_segments+append_list+independent_segments',
       '-hls_segment_type mpegts',
       `-hls_segment_filename ${path.join(outputDir, 'seg%05d.ts')}`,
