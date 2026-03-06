@@ -324,6 +324,9 @@
     .qr-info h3 { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
     .qr-info p { font-size: 12px; color: var(--text2); margin-bottom: 6px; }
     .qr-url { font-size: 11px; font-family: monospace; color: var(--accent2); word-break: break-all; }
+    .qr-note { font-size: 11px; color: var(--text3); margin-top: 4px; }
+    .qr-admin-note { font-size: 11px; color: var(--text3); margin-top: 2px; }
+    .qr-error { color: var(--red); font-size: 11px; }
 
     /* MODAL */
     .modal-overlay {
@@ -506,6 +509,13 @@
     .breadcrumb-item:hover { color: var(--text); }
     .breadcrumb-item.active { color: var(--accent); font-weight: 600; }
     .breadcrumb-separator { color: var(--text3); margin: 0 4px; }
+    
+    /* Classes pour remplacement des styles inline */
+    .view-hidden { display: none; }
+    .view-visible { display: block; }
+    .bar-width { transition: width 0.3s ease; }
+    .sys-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .sys-last-update { font-size: 13px; color: var(--text3); }
   </style>
 </head>
 <body>
@@ -610,9 +620,9 @@
         </div>
 
         <!-- SYSTEM VIEW -->
-        <div id="view-system" style="display:none">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-            <span style="font-size:13px;color:var(--text3)" id="sys-last-update">—</span>
+        <div id="view-system" class="view-hidden">
+          <div class="sys-header">
+            <span class="sys-last-update" id="sys-last-update">—</span>
             <button class="sys-refresh-btn" id="sys-refresh-btn">↻ Actualiser</button>
           </div>
 
@@ -1013,7 +1023,10 @@ async function loadQr() {
       const errorText = await r.text();
       console.error('[QR Frontend] API error:', r.status, errorText);
       const urlEl = document.getElementById('qr-url');
-      if (urlEl) urlEl.textContent = `Erreur ${r.status}: ${errorText}`;
+      if (urlEl) {
+        urlEl.className = 'qr-error';
+        urlEl.textContent = `Erreur ${r.status}: ${errorText}`;
+      }
       return;
     }
     
@@ -1035,18 +1048,21 @@ async function loadQr() {
     // En mode double interface : indiquer que le QR pointe sur le WiFi public
     if (data.isDualNetwork && data.adminUrl) {
       const note = document.createElement('div');
-      note.style.cssText = 'font-size:11px;color:var(--text3);margin-top:4px';
+      note.className = 'qr-note';
       note.textContent = '🌐 Mode double interface — QR code pointe sur le réseau public';
       urlEl.parentNode.insertBefore(note, urlEl.nextSibling);
       const adminNote = document.createElement('div');
-      adminNote.style.cssText = 'font-size:11px;color:var(--text3);margin-top:2px';
+      adminNote.className = 'qr-admin-note';
       adminNote.textContent = `🔧 Admin : ${data.adminUrl}`;
       urlEl.parentNode.insertBefore(adminNote, note.nextSibling);
     }
   } catch (e) {
     console.error('[QR Frontend] Error:', e);
     const urlEl = document.getElementById('qr-url');
-    if (urlEl) urlEl.textContent = `Erreur: ${e.message}`;
+    if (urlEl) {
+      urlEl.className = 'qr-error';
+      urlEl.textContent = `Erreur: ${e.message}`;
+    }
   }
 }
 
@@ -2039,7 +2055,8 @@ const ViewState = {
   hideAll() {
     document.getElementById('view-overview').classList.add('hidden-screen');
     document.getElementById('view-channel').classList.remove('visible');
-    document.getElementById('view-system').style.display = 'none';
+    document.getElementById('view-system').classList.add('view-hidden');
+    document.getElementById('view-system').classList.remove('view-visible');
   },
   
   // Affiche une vue spécifique avec état cohérent
@@ -2095,7 +2112,8 @@ const ViewState = {
   
   showSystem() {
     _sysViewOpen = true;
-    document.getElementById('view-system').style.display = 'block';
+    document.getElementById('view-system').classList.remove('view-hidden');
+    document.getElementById('view-system').classList.add('view-visible');
     document.getElementById('content-title').textContent = 'Système';
     updateBreadcrumbs(this.VIEWS.SYSTEM);
     updateHeaderActions();
@@ -2105,7 +2123,8 @@ const ViewState = {
   
   hideSystem() {
     _sysViewOpen = false;
-    document.getElementById('view-system').style.display = 'none';
+    document.getElementById('view-system').classList.add('view-hidden');
+    document.getElementById('view-system').classList.remove('view-visible');
     clearInterval(_sysRefreshTimer);
     _sysRefreshTimer = null;
   }
@@ -2119,7 +2138,9 @@ function setText(id, val) {
 
 function setBar(id, pct) {
   const el = document.getElementById(id);
-  if (el) el.style.width = Math.max(0, Math.min(100, pct)) + '%';
+  if (el) {
+    el.style.width = Math.max(0, Math.min(100, pct)) + '%'; // Temporaire, à remplacer par CSS variable
+  }
 }
 
 function fmtBytes(bytes) {
@@ -2468,7 +2489,7 @@ function fmtUptime(s) {
 function setBar(barId, pct) {
   const el = document.getElementById(barId);
   if (!el) return;
-  el.style.width = pct + '%';
+  el.style.width = pct + '%'; // Temporaire, à remplacer par CSS variable
   el.classList.remove('warn', 'danger');
   if (pct >= 90) el.classList.add('danger');
   else if (pct >= 70) el.classList.add('warn');
