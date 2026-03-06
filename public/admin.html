@@ -612,10 +612,7 @@
         <!-- SYSTEM VIEW -->
         <div id="view-system" style="display:none">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-            <div style="display:flex;align-items:center;gap:12px">
-              <button class="btn-sm btn-back" id="btn-back-from-system">← Retour</button>
-              <span style="font-size:13px;color:var(--text3)" id="sys-last-update">—</span>
-            </div>
+            <span style="font-size:13px;color:var(--text3)" id="sys-last-update">—</span>
             <button class="sys-refresh-btn" id="sys-refresh-btn">↻ Actualiser</button>
           </div>
 
@@ -917,6 +914,9 @@ function buildIconGrid(gridId, inputId, previewId) {
 }
 
 function init() {
+  // Initialiser le gestionnaire de vue
+  ViewState.show(ViewState.VIEWS.OVERVIEW);
+  
   connectAdminWs();
   loadQr();
   loadChannels();
@@ -1048,54 +1048,11 @@ function renderSidebar() {
 }
 
 function selectChannel(id) {
-  selectedChannelId = id;
-  renderSidebar();
-  const ch = allChannels.find(c => c.id === id);
-  if (!ch) return;
-  document.getElementById('view-overview').classList.add('hidden-screen');
-  document.getElementById('view-channel').classList.add('visible');
-  document.getElementById('view-system').style.display = 'none';
-  document.getElementById('content-title').textContent = ch.name;
-  updateBreadcrumbs('channel', ch.name);
-  renderChannelDetail(ch);
-}
-
-function updateBreadcrumbs(view, channelName = null) {
-  const breadcrumbs = document.getElementById('breadcrumbs');
-  const btnOverview = document.getElementById('btn-overview');
-  
-  switch (view) {
-    case 'overview':
-      breadcrumbs.innerHTML = '<span class="breadcrumb-item active" data-view="overview">Vue d\'ensemble</span>';
-      btnOverview.style.display = 'none';
-      break;
-    case 'channel':
-      breadcrumbs.innerHTML = `
-        <span class="breadcrumb-item" data-view="overview">Vue d\'ensemble</span>
-        <span class="breadcrumb-separator">›</span>
-        <span class="breadcrumb-item active">${channelName || 'Canal'}</span>
-      `;
-      btnOverview.style.display = 'block';
-      break;
-    case 'system':
-      breadcrumbs.innerHTML = `
-        <span class="breadcrumb-item" data-view="overview">Vue d\'ensemble</span>
-        <span class="breadcrumb-separator">›</span>
-        <span class="breadcrumb-item active">Système</span>
-      `;
-      btnOverview.style.display = 'block';
-      break;
-  }
+  ViewState.show(ViewState.VIEWS.CHANNEL, id);
 }
 
 function showOverview() {
-  selectedChannelId = null;
-  renderSidebar();
-  document.getElementById('view-overview').classList.remove('hidden-screen');
-  document.getElementById('view-channel').classList.remove('visible');
-  document.getElementById('view-system').style.display = 'none';
-  document.getElementById('content-title').textContent = 'Vue d\'ensemble';
-  updateBreadcrumbs('overview');
+  ViewState.show(ViewState.VIEWS.OVERVIEW);
 }
 
 function renderChannelDetail(ch) {
@@ -2041,6 +1998,94 @@ async function createChannel() {
   } catch (e) { log('Erreur création: ' + e.message, 'error'); }
 }
 
+// --- GESTIONNAIRE DE VUE CENTRALISÉ ---
+const ViewState = {
+  current: 'overview',
+  previous: null,
+  
+  // États de vue valides
+  VIEWS: {
+    OVERVIEW: 'overview',
+    CHANNEL: 'channel',
+    SYSTEM: 'system'
+  },
+  
+  // Cache toutes les vues
+  hideAll() {
+    document.getElementById('view-overview').classList.add('hidden-screen');
+    document.getElementById('view-channel').classList.remove('visible');
+    document.getElementById('view-system').style.display = 'none';
+  },
+  
+  // Affiche une vue spécifique avec état cohérent
+  show(view, data = null) {
+    if (!Object.values(this.VIEWS).includes(view)) {
+      console.error('Vue invalide:', view);
+      return;
+    }
+    
+    this.previous = this.current;
+    this.current = view;
+    
+    // Cache toutes les vues d'abord
+    this.hideAll();
+    
+    switch (view) {
+      case this.VIEWS.OVERVIEW:
+        this.showOverview();
+        break;
+      case this.VIEWS.CHANNEL:
+        this.showChannel(data);
+        break;
+      case this.VIEWS.SYSTEM:
+        this.showSystem();
+        break;
+    }
+  },
+  
+  showOverview() {
+    selectedChannelId = null;
+    renderSidebar();
+    document.getElementById('view-overview').classList.remove('hidden-screen');
+    document.getElementById('content-title').textContent = 'Vue d\'ensemble';
+    updateBreadcrumbs(this.VIEWS.OVERVIEW);
+    updateHeaderActions();
+  },
+  
+  showChannel(channelId) {
+    selectedChannelId = channelId;
+    renderSidebar();
+    const ch = allChannels.find(c => c.id === channelId);
+    if (!ch) {
+      console.error('Canal non trouvé:', channelId);
+      this.showOverview();
+      return;
+    }
+    document.getElementById('view-channel').classList.add('visible');
+    document.getElementById('content-title').textContent = ch.name;
+    updateBreadcrumbs(this.VIEWS.CHANNEL, ch.name);
+    updateHeaderActions();
+    renderChannelDetail(ch);
+  },
+  
+  showSystem() {
+    _sysViewOpen = true;
+    document.getElementById('view-system').style.display = 'block';
+    document.getElementById('content-title').textContent = 'Système';
+    updateBreadcrumbs(this.VIEWS.SYSTEM);
+    updateHeaderActions();
+    refreshSystemView();
+    _sysRefreshTimer = setInterval(refreshSystemView, 15000);
+  },
+  
+  hideSystem() {
+    _sysViewOpen = false;
+    document.getElementById('view-system').style.display = 'none';
+    clearInterval(_sysRefreshTimer);
+    _sysRefreshTimer = null;
+  }
+};
+
 // --- UTILS ---
 function setText(id, val) {
   const el = document.getElementById(id);
@@ -2663,39 +2708,22 @@ async function refreshSystemView() {
 }
 
 function showSystemView() {
-  _sysViewOpen = true;
-  document.getElementById('view-overview').style.display = 'none';
-  document.getElementById('view-channel').style.display = 'none';
-  document.getElementById('view-system').style.display = 'block';
-  document.getElementById('content-title').textContent = 'Système';
-  document.getElementById('content-header-actions').innerHTML = '';
-  updateBreadcrumbs('system');
-  refreshSystemView();
-  _sysRefreshTimer = setInterval(refreshSystemView, 15000);
+  ViewState.show(ViewState.VIEWS.SYSTEM);
 }
 
 function hideSystemView() {
-  _sysViewOpen = false;
-  document.getElementById('view-system').style.display = 'none';
-  clearInterval(_sysRefreshTimer);
-  _sysRefreshTimer = null;
-  
-  // Restaurer la vue précédente (overview ou édition de canal)
-  if (selectedChannelId) {
-    // On était en édition de canal, restaurer cette vue
-    document.getElementById('view-overview').style.display = 'none';
-    document.getElementById('view-channel').style.display = 'block';
-    document.getElementById('content-title').textContent = selectedChannelId ? allChannels.find(c => c.id === selectedChannelId)?.name || 'Canal' : 'Vue d\'ensemble';
+  ViewState.hideSystem();
+  // Revenir à la vue précédente
+  if (ViewState.previous === ViewState.VIEWS.CHANNEL && selectedChannelId) {
+    ViewState.show(ViewState.VIEWS.CHANNEL, selectedChannelId);
   } else {
-    // On était en vue d'ensemble, restaurer cette vue
-    document.getElementById('view-overview').style.display = '';
-    document.getElementById('view-channel').style.display = 'none';
-    document.getElementById('content-title').textContent = 'Vue d\'ensemble';
+    ViewState.show(ViewState.VIEWS.OVERVIEW);
   }
 }
 
+// Bouton système (action direct, plus de toggle)
 document.getElementById('btn-system').addEventListener('click', () => {
-  if (_sysViewOpen) {
+  if (ViewState.current === ViewState.VIEWS.SYSTEM) {
     hideSystemView();
   } else {
     showSystemView();
