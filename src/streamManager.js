@@ -111,7 +111,7 @@ class StreamManager extends EventEmitter {
       '-f hls',
       `-hls_time ${config.audio.hlsSegmentDuration}`,
       `-hls_list_size ${config.audio.hlsListSize}`,
-      '-hls_flags delete_segments+append_list+omit_endlist+independent_segments',
+      '-hls_flags delete_segments+append_list+independent_segments',
       '-hls_segment_type mpegts',
       `-hls_segment_filename ${path.join(outputDir, 'seg%05d.ts')}`,
       '-hls_allow_cache 0',
@@ -217,38 +217,13 @@ class StreamManager extends EventEmitter {
   }
 
   _startLoopFileStream(channelId, source, sourceConfig, outputDir) {
-    // Encode N répétitions du fichier en VOD pur dans un dossier temporaire.
-    // Quand c'est prêt (EXT-X-ENDLIST écrit), on déplace atomiquement vers outputDir
-    // et on émet stream:started. HLS.js voit une playlist VOD statique complète
-    // depuis le début → zéro saut garanti.
-    // À la fin de la lecture (MEDIA_ENDED côté client), le client recharge seg00000.
+    // Boucle infinie via stream_loop -1 + HLS live (fenêtre glissante, delete_segments).
+    // FFmpeg relit le fichier indéfiniment → pas de EXT-X-ENDLIST → HLS.js en mode live.
+    // stream:started émis dès le premier segment disponible (~1s après le démarrage).
+    // Pas de pré-encodage, pas d'attente : le stream démarre immédiatement.
 
-    const tmpDir = path.join(outputDir, '.building');
-    // Nettoyer le dossier temporaire avant encodage
-    try {
-      if (fs.existsSync(tmpDir)) {
-        fs.readdirSync(tmpDir).forEach(f => { try { fs.unlinkSync(path.join(tmpDir, f)); } catch {} });
-      } else {
-        fs.mkdirSync(tmpDir, { recursive: true });
-      }
-    } catch {}
+    const playlistPath = path.join(outputDir, 'stream.m3u8');
 
-    // Durée via ffprobe (synchrone, ~50ms)
-    const { execSync } = require('child_process');
-    let fileDuration = 60;
-    try {
-      const dur = execSync(
-        `ffprobe -v quiet -show_entries format=duration -of csv=p=0 "${source.path}"`,
-        { encoding: 'utf8', timeout: 5000 }
-      ).trim();
-      if (parseFloat(dur) > 0) fileDuration = parseFloat(dur);
-    } catch {}
-
-    const LOOP_WINDOW_S = 7200;
-    const loopCount = Math.ceil(LOOP_WINDOW_S / fileDuration);
-    console.log(`[Stream ${channelId}] Loop VOD: ${loopCount}× ${fileDuration.toFixed(1)}s ≈ ${(loopCount * fileDuration / 3600).toFixed(1)}h`);
-
-    // Filtres audio (même logique que startStream)
     const audioFilters = [];
     if (source.channelMap && source.channelMap.length === 2) {
       const [l, r] = source.channelMap.map(n => n - 1);
@@ -256,9 +231,9 @@ class StreamManager extends EventEmitter {
     }
     if (source.downmix && !source.channelMap) {
       switch (source.downmix) {
-        case 'stereo': audioFilters.push('aformat=channel_layouts=stereo'); break;
-        case 'stereo-loud': audioFilters.push('pan=stereo|c0=0.65*c0+0.45*c2+0.45*c4+0.55*c6|c1=0.65*c1+0.45*c2+0.45*c5+0.55*c6'); break;
-        case 'binaural': audioFilters.push('headphone=hrir=compensated:type=time'); break;
+        case 'stereo':         audioFilters.push('aformat=channel_layouts=stereo'); break;
+        case 'stereo-loud':    audioFilters.push('pan=stereo|c0=0.65*c0+0.45*c2+0.45*c4+0.55*c6|c1=0.65*c1+0.45*c2+0.45*c5+0.55*c6'); break;
+        case 'binaural':       audioFilters.push('headphone=hrir=compensated:type=time'); break;
         case 'mono-to-stereo': audioFilters.push('pan=stereo|c0=c0|c1=c0'); break;
       }
     }
@@ -266,29 +241,27 @@ class StreamManager extends EventEmitter {
 
     const outputOptions = [
       '-f hls',
-      '-hls_time 10',
-      '-hls_list_size 0',
-      '-hls_playlist_type vod',
-      '-hls_flags independent_segments',
+      `-hls_time ${config.audio.hlsSegmentDuration}`,
+      `-hls_list_size ${config.audio.hlsListSize}`,
+      '-hls_flags delete_segments+append_list+independent_segments',
       '-hls_segment_type mpegts',
-      `-hls_segment_filename ${path.join(tmpDir, 'seg%05d.ts')}`,
-      '-hls_allow_cache 1',
+      `-hls_segment_filename ${path.join(outputDir, 'seg%05d.ts')}`,
+      '-hls_allow_cache 0',
     ];
     if (audioFilters.length > 0) outputOptions.push(`-af ${audioFilters.join(',')}`);
 
-    const tmpPlaylist = path.join(tmpDir, 'stream.m3u8');
-    const finalPlaylist = path.join(outputDir, 'stream.m3u8');
-
     const proc = ffmpeg(sourceConfig.input)
-      .inputOptions([`-stream_loop ${loopCount}`, ...(sourceConfig.inputOptions || [])])
+      .inputOptions(['-stream_loop -1', ...(sourceConfig.inputOptions || [])])
       .audioCodec('aac')
       .audioBitrate(config.audio.bitrate)
       .audioFrequency(config.audio.sampleRate)
       .audioChannels(2)
       .outputOptions(outputOptions)
-      .output(tmpPlaylist)
+      .output(playlistPath)
       .on('start', (cmd) => {
-        console.log(`[Stream ${channelId}] Loop encoding: ${cmd}`);
+        console.log(`[Stream ${channelId}] Loop live: ${cmd}`);
+        channelManager.setActive(channelId, true);
+        this.emit('stream:started', { channelId });
       })
       .on('error', (err) => {
         console.error(`[Stream ${channelId}] Loop error:`, err.message);
@@ -297,35 +270,10 @@ class StreamManager extends EventEmitter {
         this.emit('stream:error', { channelId, error: err.message });
       })
       .on('end', () => {
-        if (!this.activeStreams.has(channelId)) return;
-        // Déplacer les fichiers du dossier temporaire vers outputDir
-        try {
-          fs.readdirSync(tmpDir).forEach(f => {
-            fs.renameSync(path.join(tmpDir, f), path.join(outputDir, f));
-          });
-          fs.rmdirSync(tmpDir);
-        } catch (e) {
-          console.error(`[Stream ${channelId}] Move error:`, e.message);
-        }
-        const stream = this.activeStreams.get(channelId);
-        if (!stream) return; // stopStream() a été appelé pendant l'encodage
-        if (stream) stream.proc = null;
-        const ch = channelManager.getChannel(channelId);
-        const wasAlreadyActive = ch && ch.active;
-        if (!wasAlreadyActive) {
-          // Première fois : rendre disponible
-          console.log(`[Stream ${channelId}] Loop VOD ready (${loopCount} reps)`);
-          channelManager.setActive(channelId, true);
-          this.emit('stream:started', { channelId });
-        } else {
-          // Itération suivante prête : signaler aux clients de reboucler
-          console.log(`[Stream ${channelId}] Loop VOD re-encoded`);
-          this.emit('stream:vod_ended', { channelId });
-        }
-        // Lancer l'encodage de l'itération suivante en arrière-plan
-        if (this.activeStreams.has(channelId)) {
-          this._startLoopFileStream(channelId, source, sourceConfig, outputDir);
-        }
+        console.log(`[Stream ${channelId}] Loop ended unexpectedly`);
+        this.activeStreams.delete(channelId);
+        channelManager.setActive(channelId, false);
+        this.emit('stream:ended', { channelId });
       });
 
     proc.run();
@@ -356,7 +304,7 @@ class StreamManager extends EventEmitter {
       '-f', 'hls',
       '-hls_time', String(config.audio.hlsSegmentDuration),
       '-hls_list_size', String(config.audio.hlsListSize),
-      '-hls_flags', 'delete_segments+append_list+omit_endlist+independent_segments',
+      '-hls_flags', 'delete_segments+append_list+independent_segments',
       '-hls_segment_type', 'mpegts',
       '-hls_segment_filename', path.join(outputDir, 'seg%05d.ts'),
       '-hls_allow_cache', '0',
