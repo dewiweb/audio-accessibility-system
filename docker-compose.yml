@@ -84,13 +84,7 @@ services:
     network_mode: host
     environment:
       MTX_LOGLEVEL: "info"
-      MTX_RTSP: "no"
-      MTX_RTMP: "no"
-      MTX_SRT: "no"
-      MTX_HLS: "no"
       MTX_WEBRTCADDRESS: ":8889"
-      MTX_APILISTEN: ":9997"
-      MTX_AUTHMETHOD: "noAuth"
     logging:
       driver: json-file
       options:
