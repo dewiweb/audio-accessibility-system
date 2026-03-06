@@ -419,6 +419,9 @@ router.get('/admin/network/config', adminLimiter, requireAdmin, (req, res) => {
     multicastInterface: config.audio.multicastInterface || null,
     tlsCn: process.env.TLS_CN || null,
     nodeEnv: process.env.NODE_ENV || 'development',
+    nodeVersion: process.version,
+    platform: process.platform,
+    arch: process.arch,
   });
 });
 

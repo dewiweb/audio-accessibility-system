@@ -2519,6 +2519,35 @@ async function loadAudioSources() {
   }
 }
 
+async function loadSystemConfig() {
+  try {
+    const r = await apiFetch('/admin/config');
+    const data = await r.json();
+    
+    // Node.js
+    const nodeEl = document.getElementById('sys-node');
+    if (nodeEl) nodeEl.textContent = data.nodeVersion || '—';
+    
+    // Plateforme
+    const platformEl = document.getElementById('sys-platform');
+    if (platformEl) {
+      const platform = data.platform || process.platform || 'unknown';
+      const arch = data.arch || process.arch || '';
+      platformEl.textContent = arch ? `${platform} (${arch})` : platform;
+    }
+    
+    // Environnement
+    const envEl = document.getElementById('sys-env');
+    if (envEl) envEl.textContent = data.nodeEnv || 'development';
+    
+    // TLS CN
+    const tlsEl = document.getElementById('sys-tls-cn');
+    if (tlsEl) tlsEl.textContent = data.tlsCn || 'auto-généré';
+  } catch (e) {
+    console.warn('Erreur chargement config système:', e);
+  }
+}
+
 async function loadVersion() {
   try {
     const r = await apiFetch('/admin/version');
@@ -2539,7 +2568,8 @@ async function refreshSystemView() {
     loadNetworkInterfaces(), 
     loadActiveStreams(), 
     loadAudioSources(),
-    loadVersion()
+    loadVersion(),
+    loadSystemConfig()
   ]);
 }
 
