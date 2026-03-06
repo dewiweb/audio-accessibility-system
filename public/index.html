@@ -649,11 +649,17 @@
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
 
-    await new Promise(resolve => {
-      if (pc.iceGatheringState === 'complete') { resolve(); return; }
-      pc.onicegatheringchange = () => { if (pc.iceGatheringState === 'complete') resolve(); };
-      setTimeout(resolve, 200);
-    });
+    // Trickle ICE : attendre gathering complet max 1s, sinon envoyer quand même.
+    // Sur LAN sans STUN, gathering est quasi-instantané (<10ms).
+    // Sur WiFi chargé, le timeout de 1s garantit l'envoi même si ICE est lent.
+    if (pc.iceGatheringState !== 'complete') {
+      await new Promise(resolve => {
+        const done = () => resolve();
+        pc.onicegatheringchange = () => { if (pc.iceGatheringState === 'complete') done(); };
+        pc.onicecandidate = (e) => { if (e.candidate === null) done(); };
+        setTimeout(done, 1000);
+      });
+    }
 
     const r = await fetch(whepUrl, {
       method: 'POST',
