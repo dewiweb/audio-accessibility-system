@@ -72,8 +72,13 @@ function renderChannelDetail(ch) {
           <div id="edit-sdp-preview-${ch.id}" class="sdp-preview-row"></div>
         </div>` : ''}
         <div class="hls-url-section">
-          <div class="hls-url-label">URL HLS :</div>
+          ${(ch.source?.type === 'aes67' && ch.source?.streamMode !== 'hls') ? `
+          <div class="hls-url-label">Mode : <b>WebRTC</b> (≤100ms) &nbsp;·&nbsp; WHEP :</div>
+          <div class="hls-url-block">/whep/${ch.id}</div>
+          ` : `
+          <div class="hls-url-label">Mode : <b>HLS</b> &nbsp;·&nbsp; URL :</div>
           <div class="hls-url-block">/hls/${ch.id}/stream.m3u8</div>
+          `}
         </div>
       </div>
     </div>
@@ -152,6 +157,13 @@ function renderChannelDetail(ch) {
         <div class="form-row">
           <label class="form-label" for="edit-aes67-gain">Gain (dB) <span class="label-opt">— 0 = pas de changement</span></label>
           <input class="form-input gain-input" id="edit-aes67-gain" type="number" value="${ch.source?.gain || 0}" step="1" min="-20" max="20" />
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="edit-aes67-streammode">Mode de diffusion</label>
+          <select class="form-input" id="edit-aes67-streammode">
+            <option value="webrtc" ${(ch.source?.streamMode || 'webrtc') === 'webrtc' ? 'selected' : ''}>WebRTC (≤100ms, recommandé)</option>
+            <option value="hls" ${ch.source?.streamMode === 'hls' ? 'selected' : ''}>HLS (3-4s, compatible tous appareils)</option>
+          </select>
         </div>` : ''}
         <button class="btn-sm btn-add" data-action="save-channel-edit" data-id="${ch.id}">💾 Enregistrer</button>
       </div>
@@ -312,6 +324,8 @@ async function saveChannelEdit(id) {
     const gainVal = parseInt(gainEl?.value || 0);
     src.gain = gainVal !== 0 ? gainVal : undefined;
     if (src.gain === undefined) delete src.gain;
+    const streamModeEl = document.getElementById('edit-aes67-streammode');
+    src.streamMode = streamModeEl?.value || 'webrtc';
     updates.source = src;
   }
   try {

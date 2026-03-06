@@ -77,8 +77,10 @@ class StreamManager extends EventEmitter {
       return this._startSineStream(channelId, source);
     }
 
-    // Mode WebRTC low-latency : FFmpeg → libopus → WHIP → MediaMTX
-    if (source.type === 'aes67' && source.streamMode === 'webrtc') {
+    // Mode WebRTC low-latency : FFmpeg → libopus → RTSP → MediaMTX → WHEP navigateur.
+    // WebRTC est le défaut pour AES67 (latence ~100ms vs ~3-4s HLS).
+    // Forcer streamMode='hls' dans la source pour revenir au mode HLS si besoin.
+    if (source.type === 'aes67' && source.streamMode !== 'hls') {
       return this._startWhipStream(channelId, source);
     }
 
