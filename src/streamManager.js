@@ -273,7 +273,7 @@ class StreamManager extends EventEmitter {
     const sampleRate = config.audio.sampleRate;
     const ffmpegPath = config.audio.ffmpegPath || 'ffmpeg';
 
-    const LOOP_LIST_SIZE = 10;
+    const LOOP_LIST_SIZE = 30;
     const LOOP_SEGMENT_DURATION = 4;
 
     const afFilters = [];

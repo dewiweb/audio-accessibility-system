@@ -708,21 +708,20 @@
     const loopConfig = {
       enableWorker: false,
       lowLatencyMode: false,
-      maxBufferLength: 8,
-      maxMaxBufferLength: 12,
-      backBufferLength: 4,
+      liveDurationInfinity: true,
+      liveSyncMode: 'buffered',
+      liveSyncDurationCount: 15,
+      liveMaxLatencyDurationCount: 25,
+      liveSyncOnStallIncrease: 0,
+      startOnSegmentBoundary: true,
+      maxBufferLength: 20,
+      maxMaxBufferLength: 24,
+      backBufferLength: 0,
       nudgeOffset: 0.1,
       nudgeMaxRetry: 10,
     };
     const hlsCfg = isVod ? baseConfig : (isLoopFile ? loopConfig : liveConfig);
     const hls = new Hls(hlsCfg);
-    if (isLoopFile) {
-      hls.on(Hls.Events.LEVEL_UPDATED, (_, data) => {
-        if (data.details && data.details.live) {
-          data.details.live = false;
-        }
-      });
-    }
     hls.loadSource(url);
     hls.attachMedia(audio);
     hls.on(Hls.Events.MANIFEST_PARSED, () => {
