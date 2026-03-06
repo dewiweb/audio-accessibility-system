@@ -86,8 +86,15 @@ services:
     container_name: audio-access-mediamtx
     restart: unless-stopped
     network_mode: host
-    volumes:
-      - /opt/audio-access/mediamtx.yml:/mediamtx.yml:ro
+    environment:
+      MTX_LOGLEVEL: "info"
+      MTX_RTSP: "no"
+      MTX_RTMP: "no"
+      MTX_SRT: "no"
+      MTX_HLS: "no"
+      MTX_WEBRTCADDRESS: ":8889"
+      MTX_APILISTEN: ":9997"
+      MTX_AUTHMETHOD: "noAuth"
     logging:
       driver: json-file
       options:
