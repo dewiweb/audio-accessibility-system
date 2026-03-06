@@ -1,133 +1,163 @@
-# Recommandations Hardware — 450 clients simultanés en production
+# Recommandations Hardware — Audio Accessibility System
 
-## Contexte de charge
-
-Le système utilise deux modes de diffusion en parallèle :
-
-**Mode WebRTC (AES67 live — prioritaire)**
-- FFmpeg → RTSP → MediaMTX → WHEP navigateur (~100ms latence)
-- MediaMTX ouvre une connexion DTLS/SRTP par client → charge CPU linéaire
-- 450 clients × 4–6 canaux WebRTC = charge DTLS significative (voir CPU ci-dessous)
-
-**Mode HLS (fallback + fichiers audio)**
-- 450 smartphones × 1 requête HTTPS/s par canal
-- 4–6 canaux possibles → jusqu'à ~600–700 requêtes HTTPS/s au pic
-- Keep-alive TLS configuré (65s) → réutilisation connexions, facteur ×5–10 d'allègement
+Contexte : salle de spectacle jusqu'à 450 places (ERP), diffusion audio pour malentendants et déficients visuels. Conformité loi du 11 février 2005 et décret 2014-1332.
 
 ---
 
-## Serveur de diffusion (nœud central)
+## Charge système
 
-| Composant | Recommandation | Justification |
-|-----------|----------------|---------------|
-| CPU | 8 cœurs (ex: Intel i7-12700 ou AMD Ryzen 7 5700G) | DTLS MediaMTX 450 clients + FFmpeg multicanal + Node.js |
-| RAM | 16 Go | MediaMTX ~50 Mo/canal, FFmpeg ~30 Mo/canal, Node.js ~200 Mo, WS 450 clients |
-| Réseau | **2 interfaces réseau distinctes** (voir topologie) | Interface régie (AES67) séparée interface WiFi public |
-| Stockage | SSD NVMe 64 Go minimum | Segments HLS fallback, logs, uploads audio |
-| OS | Ubuntu Server 24.04 LTS | Base Docker stable, support long terme |
+| Mode | Pipeline | Latence | Charge serveur |
+|------|----------|---------|----------------|
+| **WebRTC** (AES67 live) | FFmpeg → RTSP → MediaMTX → WHEP | ~100ms | DTLS/SRTP par client — CPU linéaire |
+| **HLS** (fallback + fichiers) | FFmpeg → segments → Node.js HTTPS | ~3–4s | ~1 req HTTPS/s/client — keep-alive TLS |
 
-> ⚠️ **CPU critique** : MediaMTX gère le chiffrement DTLS de chaque connexion WebRTC. À 450 clients simultanés, prévoir un i7 8 cœurs minimum. Un Raspberry Pi ou équivalent ARM basse consommation est **insuffisant**.
-
-Exemples validés : HP EliteDesk 800 G6, Dell OptiPlex 7090, mini-PC **Beelink SER7** (Ryzen 7 7840HS) — silencieux, fanless possible, rack-mountable avec adaptateur.
+À pleine salle : 450 clients, 4–6 canaux simultanés → jusqu'à 2 700 connexions WebRTC actives ou ~700 req/s HTTPS.
 
 ---
 
-## Infrastructure WiFi — point critique
+## Serveur de diffusion
 
-450 clients WiFi dans une salle est le vrai défi du système. Dans un environnement avec d'autres réseaux WiFi co-présents :
+| Composant | Minimum | Recommandé | Justification |
+|-----------|---------|------------|---------------|
+| CPU | 4 cœurs / 3 GHz | **8 cœurs** (i7-12700 / Ryzen 7 5700G) | DTLS MediaMTX ×450 clients + FFmpeg multicanal |
+| RAM | 8 Go | **16 Go** | MediaMTX ~50 Mo/canal, FFmpeg ~30 Mo/canal, Node.js ~200 Mo |
+| Réseau | 1× 1 GbE | **2× 1 GbE** (interfaces séparées) | Régie AES67 isolée du WiFi public |
+| Stockage | SSD 32 Go | **SSD NVMe 64 Go** | Segments HLS, uploads audio, logs |
+| OS | — | **Ubuntu Server 24.04 LTS** | Base Docker stable, LTS 5 ans |
 
-### Contraintes
+> ⚠️ **CPU critique** : MediaMTX chiffre chaque connexion WebRTC en DTLS/SRTP indépendamment. À 450 clients, la charge CPU est significative. Un Raspberry Pi ou nano-PC ARM est **insuffisant**.
 
-- **802.11ac (WiFi 5)** : ~30–50 clients par AP en charge réelle (streaming continu)
-- **802.11ax (WiFi 6/6E)** : 60–100 clients par AP en charge
-- **Bandes disponibles** : 5 GHz (moins encombrée) et 6 GHz (WiFi 6E, quasi-vierge en salle)
+**Modèles validés** (silencieux, rack-mountable avec adaptateur) :
+- **Beelink SER7** (Ryzen 7 7840HS, ~400 €) — 2e interface via USB 2.5G ou carte M.2
+- **HP EliteDesk 800 G6 Mini** (~350 € reconditionné) — slot PCIe disponible
+- **Dell OptiPlex 7090 Micro** (~380 € reconditionné) — robuste, parts disponibles
 
-### Plan d'accès recommandé
-
-| Nombre d'AP | Technologie | Clients/AP | Total |
-|-------------|-------------|------------|-------|
-| 8–10 AP | WiFi 6 (802.11ax) 5 GHz | ~50 | 400–500 ✓ |
-| 6–8 AP | WiFi 6E (802.11ax) 6 GHz | ~70 | 420–560 ✓ |
-
-### Solutions open-source recommandées
-
-- **OpenWrt** sur matériel compatible — WiFi 6 bien supporté : **GL.iNet MT3000 (Beryl AX)**, **Banana Pi BPI-R3**, TP-Link EAP615-Wall (support partiel/expérimental sur EAP670)
-- **OpenWifi** (TIP — Telecom Infra Project) — stack WiFi enterprise open-source
-- **Ubiquiti UniFi** avec contrôleur self-hosted (gratuit, non open-source mais déployable sans cloud)
-- **hostapd** en solution full open-source sur matériel dédié
-
-### Configuration WiFi critique
-
-- SSID dédié isolé sur VLAN spécifique (séparation du réseau régie)
-- Band steering 5/6 GHz forcé pour éviter la saturation du 2.4 GHz
-- `DTIM = 3–5` pour économiser la batterie des smartphones
-- **RRM** (Radio Resource Management) activé pour équilibrage automatique de charge
-- **Client isolation** activé (les auditeurs ne doivent pas se voir entre eux)
-- Débit minimum forcé (éjecte les clients trop loin → évite l'effet "sticky client") :
-  - UniFi : paramètre "Minimum RSSI" + "BSS Transition"
-  - OpenWrt/hostapd : `basic_rates` / `supported_rates` (équivalent ~24 Mbps MCS)
-  - Valeur cible : exclure les clients sous −75 dBm RSSI
+> Les mini-PC n'ont souvent qu'une interface intégrée — prévoir une carte réseau additionnelle (USB 2.5G ~25 €, ou M.2/PCIe selon modèle).  
+> `network_mode: host` Docker est obligatoire pour la réception multicast RTP AES67.
 
 ---
 
-## Topologie réseau
+## Infrastructure réseau
+
+### Topologie
 
 ```
-Serveur Docker ──── Switch PoE géré ──── AP WiFi ×8-10
-     │                    │
-     │               AP WiFi ×8-10    (couverture redondante)
+  [Console son / Table de mixage]
+          │ AES67 multicast RTP (L16/L24, 48kHz)
+          │
+  [Switch géré L2 — VLAN 10 régie]
+          │
+  [eth0 — Serveur Docker — eth1]
+          │
+  [Switch PoE géré L2 — VLAN 20 auditeurs]
+     │         │         │
+  [AP WiFi] [AP WiFi] [AP WiFi] ×8–10
      │
-  Console son (AES67 — réseau régie isolé, interface dédiée)
+  [Smartphones auditeurs — SSID dédié]
 ```
 
-> ⚠️ Le serveur doit avoir **2 interfaces réseau** : une vers le réseau AES67/régie, une vers le WiFi public.  
-> Les mini-PC n'ont souvent qu'une seule interface intégrée — prévoir une carte réseau additionnelle (USB 2.5G ou PCIe selon le modèle).  
-> `network_mode: host` Docker reste obligatoire pour la réception multicast RTP.
+**VLANs :**
+- VLAN 10 — Régie / AES67 : isolé, aucun accès WiFi public
+- VLAN 20 — Auditeurs WiFi : accès serveur uniquement, client isolation activé
+- VLAN 30 — Admin : accès interface régie uniquement
+
+### Switch — exigences critiques
+
+**IGMP snooping obligatoire.** Sans lui, le multicast AES67 (1 000 paquets/s par canal) est broadcasté sur tous les ports dont les AP WiFi, saturant le réseau auditeurs et dégradant l'audio.
+
+| Modèle | IGMP snooping | PoE+ | Prix indicatif |
+|--------|--------------|------|----------------|
+| **Cisco SG350-10P** | ✓ | ✓ | ~350 € |
+| **Netgear M4250-10G2F** (série AV) | ✓ | ✓ | ~450 € |
+| **TP-Link TL-SG3210** | ✓ | — | ~120 € |
+
+> Le TP-Link TL-SG2210P (série non gérée intelligente) a un support IGMP snooping limité — à éviter pour AES67.
+
+Câblage : **Cat6 minimum**, longueurs ≤90 m patch inclus.
 
 ---
 
-## Switch & câblage
+## Infrastructure WiFi
 
-- **Switch géré L2** avec **IGMP snooping obligatoire** — sans ça, le multicast AES67 flood tout le réseau et sature les AP WiFi
-  - Recommandé : **Cisco SG350**, **Netgear M4250** (série AV), TP-Link TL-SG2210P
-- **PoE+ (802.3at)** pour alimenter les AP sans bloc secteur
-- **VLANs** :
-  - VLAN 10 = régie / AES67 (isolé, pas d'accès WiFi)
-  - VLAN 20 = WiFi auditeurs (accès serveur uniquement, client isolation activé)
-  - VLAN 30 = admin
+450 clients dans une salle fermée est le véritable défi du système. La densité WiFi dépasse les capacités d'un AP domestique ou d'un seul AP professionnel.
 
-> ⚠️ **IGMP snooping** : sans cette fonctionnalité activée sur le switch, les paquets RTP multicast AES67 (1000 paquets/s par canal) sont broadcastés sur tous les ports, y compris les AP WiFi — ce qui dégrade immédiatement la qualité audio pour tous les auditeurs.
+### Dimensionnement
+
+| Technologie | Clients/AP réaliste | AP nécessaires pour 450 |
+|-------------|--------------------|-----------------------|
+| WiFi 5 (802.11ac) | 30–50 | 9–15 AP |
+| **WiFi 6 (802.11ax) 5 GHz** | 50–70 | **7–9 AP** |
+| WiFi 6E (802.11ax) 6 GHz | 70–100 | 5–7 AP |
+
+### Modèles recommandés
+
+- **Ubiquiti U6-Pro** (~180 €/u) — contrôleur self-hosted gratuit (UniFi Network), idéal pour gestion centralisée de la salle
+- **TP-Link EAP670** (~110 €/u) — contrôleur Omada self-hosted gratuit, bon rapport qualité/prix
+- **GL.iNet MT3000** (~90 €/u) + OpenWrt — solution 100% open-source, WiFi 6, pour techniciens
+
+### Configuration WiFi requise
+
+| Paramètre | Valeur | Raison |
+|-----------|--------|--------|
+| SSID | Dédié, sans captive portal | WebSocket et WHEP bloqués par portail captif |
+| Bande | 5 GHz ou 6 GHz forcé | Éviter saturation 2.4 GHz en salle |
+| DTIM | 3–5 | Économie batterie smartphones |
+| RRM | Activé | Équilibrage automatique de charge entre AP |
+| Client isolation | Activé | Les auditeurs ne doivent pas se voir entre eux |
+| RSSI minimum | −75 dBm | Éjecte les clients trop éloignés (sticky client) |
+| VLAN tag | VLAN 20 | Isolation réseau régie |
 
 ---
 
-## Smartphones prêtés à l'entrée
+## Smartphones
 
-### Compatibilité WebRTC
-- **Android 10+** avec Chrome — WebRTC optimal
-- **iPhone 12+ / iOS 15.1+** avec Safari — WebRTC stable
-- Éviter les tablettes Android <2019 — WebRTC parfois instable
+### Appareils prêtés à l'entrée (recommandé)
 
-### Certificat TLS — point bloquant
-Le serveur utilise un certificat auto-signé. Sur smartphone non préconfiguré :
-- Le navigateur affiche un avertissement HTTPS
-- **WebRTC peut échouer silencieusement sur iOS** si le certificat n'est pas approuvé
+Utiliser des appareils maîtrisés permet de préconfigurer le certificat TLS et garantit la compatibilité WebRTC.
+
+| Critère | Minimum | Notes |
+|---------|---------|-------|
+| Android | 10+ avec Chrome | WebRTC optimal |
+| iPhone | 12+ / iOS 15.1+ avec Safari | WebRTC stable depuis iOS 15.1 |
+| Tablettes | Android 2020+ | Éviter tablettes <2019 — WebRTC instable |
+| Batterie | >3 000 mAh | Prévoir chargeurs en réserve |
+
+### Certificat TLS — point bloquant sur iOS
+
+Le serveur utilise un certificat auto-signé. Sur iOS, WebRTC peut **échouer silencieusement** si le certificat n'est pas approuvé en CA de confiance.
 
 **Solutions par ordre de préférence :**
 
-1. **CA interne installée sur les appareils prêtés** — générer un certificat racine, l'installer en CA de confiance via MDM (Mobile Device Management) avant distribution. Solution la plus propre.
-2. **Let's Encrypt avec domaine DNS local** — si un serveur DNS interne est disponible, un certificat valide publiquement élimine le problème.
-3. **Acceptation manuelle à l'entrée** — procédure guidée sur écran d'accueil avant distribution du smartphone (solution de dépannage uniquement).
+1. **CA interne sur appareils prêtés** — installer le certificat racine via profil MDM avant distribution. Transparent pour l'utilisateur. Voir `HTTPS-SETUP.md`.
+2. **Let's Encrypt + DNS interne** — si un résolveur DNS local est disponible, un certificat public élimine le problème sur tous les appareils sans configuration.
+3. **Acceptation manuelle** — l'utilisateur visite `https://[ip]:8443` et accepte l'avertissement avant de scanner le QR code. Solution de secours uniquement.
 
-> Le fichier `HTTPS-SETUP.md` documente la génération du certificat auto-signé avec SAN.
+### BYOD (smartphones personnels des spectateurs)
+
+Possible mais non garanti : le spectateur doit accepter le certificat manuellement. Le QR code peut pointer vers une page de bienvenue qui guide cette étape avant la lecture audio.
 
 ---
 
-## Estimation de coût (open-source, marché actuel)
+## À ne pas faire
+
+- ❌ **Raspberry Pi ou nano-PC ARM** — CPU insuffisant pour MediaMTX DTLS à 450 clients
+- ❌ **Switch sans IGMP snooping** (ex: switches non gérés) — multicast AES67 flood le réseau WiFi
+- ❌ **WiFi partagé avec le réseau régie** — jitter RTP imprévisible, dégradation audio
+- ❌ **SSID avec captive portal** — bloque WebSocket et WHEP irrémédiablement
+- ❌ **AP unique pour toute la salle** — saturation garantie à partir de ~50 clients en streaming continu
+- ❌ **HTTP (non-TLS)** — WebRTC exige HTTPS/WSS, non négociable
+
+---
+
+## Estimation de coût
 
 | Poste | Solution | Coût estimé |
 |-------|----------|-------------|
-| Serveur | Mini-PC NUC-like (i7 / 16 Go / NVMe) + carte réseau USB/PCIe si 2e interface nécessaire | 420–750 € |
-| AP WiFi 6 ×8 | TP-Link EAP670 (~110 €/u) ou Ubiquiti U6-Pro (~180 €/u) | 880–1 440 € |
-| Switch PoE géré | TP-Link TL-SG2210P | 80–150 € |
-| Câblage Cat6 | — | 100–200 € |
-| **Total** | | **~1 400–2 250 €** |
+| Serveur | Beelink SER7 ou HP EliteDesk 800 G6 reconditionné + carte réseau 2e interface | 380–750 € |
+| Switch régie (IGMP) | Cisco SG350-10P ou Netgear M4250 | 350–450 € |
+| Switch auditeurs PoE | TP-Link TL-SG3210 + injecteurs PoE séparés ou switch PoE dédié | 120–300 € |
+| AP WiFi 6 ×8 | TP-Link EAP670 ×8 (~110 €/u) ou Ubiquiti U6-Pro ×8 (~180 €/u) | 880–1 440 € |
+| Câblage Cat6 + connectique | — | 150–300 € |
+| **Total** | | **~1 880–3 240 €** |
+
+> Les smartphones prêtés à l'entrée constituent un poste variable non inclus (amortissement sur plusieurs saisons, ou location de dispositifs dédiés).
