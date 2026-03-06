@@ -706,13 +706,14 @@
       maxMaxBufferLength: 12,
     };
     const loopConfig = {
-      ...baseConfig,
+      enableWorker: false,
+      lowLatencyMode: false,
       liveDurationInfinity: true,
-      maxBufferLength: 30,
-      maxMaxBufferLength: 40,
-      backBufferLength: 16,
-      liveSyncDurationCount: 8,
-      liveMaxLatencyDurationCount: 9,
+      liveSyncDurationCount: 999,
+      liveMaxLatencyDurationCount: 1000,
+      maxBufferLength: 36,
+      maxMaxBufferLength: 36,
+      backBufferLength: 0,
       nudgeOffset: 0.1,
       nudgeMaxRetry: 10,
     };
