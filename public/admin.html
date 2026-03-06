@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Régie Audio — Admin</title>
   <link rel="stylesheet" href="/admin.css" />
-  
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎛️</text></svg>" />
 </head>
 <body>
 
@@ -16,6 +16,7 @@
     <h1>Régie Audio</h1>
     <p>Accès réservé au personnel technique</p>
     <form id="login-form" aria-label="Formulaire de connexion">
+      <input type="text" name="username" value="admin" autocomplete="username" class="input-hidden" aria-hidden="true" tabindex="-1" />
       <label for="login-pwd" class="form-label login-label">Mot de passe</label>
       <input type="password" id="login-pwd" autocomplete="current-password" placeholder="Mot de passe admin" aria-describedby="login-error" />
       <button type="submit" class="btn-primary" id="login-btn">Accéder à la régie</button>

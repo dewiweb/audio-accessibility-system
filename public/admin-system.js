@@ -423,176 +423,18 @@ function hideSystemView() {
   }
 }
 
-// --- EVENT LISTENERS ---
-function initEventListeners() {
-  const btnSystem = document.getElementById('btn-system');
-  if (btnSystem) {
-    btnSystem.addEventListener('click', () => {
-      if (ViewState.current === ViewState.VIEWS.SYSTEM) hideSystemView();
-      else showSystemView();
-    });
-  }
-  const sysRefreshBtn = document.getElementById('sys-refresh-btn');
-  if (sysRefreshBtn) sysRefreshBtn.addEventListener('click', refreshSystemView);
-
-  const btnBackFromSystem = document.getElementById('btn-back-from-system');
-  if (btnBackFromSystem) btnBackFromSystem.addEventListener('click', hideSystemView);
-}
-
-// Topbar logo/title → overview
-document.querySelector('.topbar-logo').addEventListener('click', showOverview);
-document.querySelector('.topbar-title').addEventListener('click', showOverview);
-
-// Bouton retour vue d'ensemble
-document.getElementById('btn-overview').addEventListener('click', showOverview);
-
-// Breadcrumbs
-document.addEventListener('click', (e) => {
-  const breadcrumb = e.target.closest('.breadcrumb-item');
-  if (breadcrumb && !breadcrumb.classList.contains('active')) {
-    if (breadcrumb.dataset.view === 'overview') showOverview();
-  }
-});
-
-// Sidebar (délégation — généré dynamiquement)
-document.addEventListener('click', (e) => {
-  const ch = e.target.closest('.ch-item[data-id]');
-  if (ch) selectChannel(ch.dataset.id);
-}, true);
-
-// Délégation d'événements globale (click)
-document.addEventListener('click', (e) => {
-  const el = e.target.closest('[data-action]');
-  if (!el) return;
-  const action = el.dataset.action;
-  const id = el.dataset.id;
-  switch (action) {
-    case 'show-overview':      showOverview(); break;
-    case 'start-stream':       startStream(id); break;
-    case 'stop-stream':        stopStream(id); break;
-    case 'restart-stream':     restartStream(id); break;
-    case 'start-testtone':     startTestTone(id); break;
-    case 'delete-channel':     deleteChannel(id); break;
-    case 'clear-edit-sdp':     clearEditSdp(id); break;
-    case 'save-edit-sdp':      saveEditSdp(id); break;
-    case 'apply-edit-sdp':     applyEditSdp(id); break;
-    case 'save-channel-edit':  saveChannelEdit(id); break;
-    case 'set-icon': {
-      const inp = document.getElementById(el.dataset.input);
-      const pre = document.getElementById(el.dataset.preview);
-      if (inp) inp.value = el.dataset.value;
-      if (pre) pre.textContent = el.dataset.value;
-      break;
-    }
-    case 'load-sdp-list':         loadSdpList(); break;
-    case 'load-audio-list':       loadAudioList(); break;
-    case 'clear-sdp-content':     clearSdpContent(); break;
-    case 'sdp-dropzone-click':
-      if (!e.target.closest('input[type="file"]'))
-        document.getElementById('src-sdp-file-input')?.click();
-      break;
-    case 'audio-dropzone-click':
-      if (!e.target.closest('input[type="file"]'))
-        document.getElementById('src-audio-file-input')?.click();
-      break;
-  }
-});
-
-document.addEventListener('change', (e) => {
-  const el = e.target.closest('[data-action]');
-  if (!el) return;
-  switch (el.dataset.action) {
-    case 'update-channel-map':       updateChannelMapOptions(); break;
-    case 'update-edit-channel-map':  updateEditChannelMapOptions(); break;
-    case 'update-channel-map-sdp':   updateChannelMapOptionsFor('src-aes67sdp-channels', 'channel-map-row-sdp', 'src-aes67sdp-channelmap', 'downmix-row-sdp'); break;
-    case 'update-channel-map-paste': updateChannelMapOptionsFor('src-aes67paste-channels', 'channel-map-row-paste', 'src-aes67paste-channelmap', 'downmix-row-paste'); break;
-    case 'sdp-existing-select':      onSdpExistingSelect(); break;
-    case 'audio-existing-select':    onAudioExistingSelect(); break;
-    case 'sdp-file-select':          onSdpFileSelect(el); break;
-    case 'audio-file-select':        onAudioFileSelect(el); break;
-  }
-});
-
-document.addEventListener('input', (e) => {
-  const el = e.target.closest('[data-action]');
-  if (!el) return;
-  switch (el.dataset.action) {
-    case 'update-icon-preview': {
-      const pre = document.getElementById(el.dataset.preview);
-      if (pre) pre.textContent = el.value;
-      break;
-    }
-    case 'sdp-content-input': onSdpContentInput(el); break;
-    case 'channels-change': {
-      const id = el.id;
-      if (id === 'src-aes67sdp-channels') updateChannelMapOptionsFor('src-aes67sdp-channels', 'channel-map-row-sdp', 'src-aes67sdp-channelmap');
-      else if (id === 'src-aes67paste-channels') updateChannelMapOptionsFor('src-aes67paste-channels', 'channel-map-row-paste', 'src-aes67paste-channelmap');
-      else if (id === 'edit-aes67-channels') updateEditChannelMapOptions();
-      break;
-    }
-    case 'edit-sdp-input': onEditSdpInput(el.dataset.id, el); break;
-  }
-});
-
-// new-icon preview (HTML statique)
-document.getElementById('new-icon').addEventListener('input', function() {
-  document.getElementById('new-icon-preview').textContent = this.value;
-});
-document.getElementById('new-source-type').addEventListener('change', updateSourceForm);
-
-// Drag-drop dropzones
-document.addEventListener('dragover', (e) => {
-  if (e.target.closest('#sdp-dropzone, #audio-dropzone')) e.preventDefault();
-});
-document.addEventListener('dragenter', (e) => {
-  const dz = e.target.closest('#sdp-dropzone, #audio-dropzone');
-  if (dz) dz.classList.add('sdp-dropzone--drag');
-});
-document.addEventListener('dragleave', (e) => {
-  const dz = e.target.closest('#sdp-dropzone, #audio-dropzone');
-  if (dz && !dz.contains(e.relatedTarget)) dz.classList.remove('sdp-dropzone--drag');
-});
-document.addEventListener('drop', (e) => {
-  const dz  = e.target.closest('#sdp-dropzone');
-  const adz = e.target.closest('#audio-dropzone');
-  if (dz)  { e.preventDefault(); dz.classList.remove('sdp-dropzone--drag');  onSdpDrop(e); }
-  if (adz) { e.preventDefault(); adz.classList.remove('sdp-dropzone--drag'); onAudioDrop(e); }
-});
-
 // --- DÉCONNEXION ---
 function doLogout() {
   adminToken = '';
   tokenExpiry = 0;
-  if (ws) { try { ws.close(); } catch(e) {} ws = null; }
+  if (adminWs) { try { adminWs.close(); } catch(e) {} adminWs = null; }
   document.getElementById('app').classList.remove('visible');
   document.getElementById('login-screen').classList.remove('hidden-screen');
   document.getElementById('login-pwd').value = '';
   document.getElementById('login-error').classList.add('msg-hidden');
 }
 
-document.getElementById('btn-logout').addEventListener('click', () => {
-  if (!confirm('Se déconnecter de la régie ?')) return;
-  log('Déconnexion effectuée', 'warn');
-  doLogout();
-});
-
 // --- CHANGEMENT DE MOT DE PASSE ---
-document.getElementById('btn-change-pwd').addEventListener('click', () => {
-  document.getElementById('pwd-current').value = '';
-  document.getElementById('pwd-new').value = '';
-  document.getElementById('pwd-confirm').value = '';
-  document.getElementById('pwd-error').classList.add('msg-hidden');
-  document.getElementById('pwd-success').classList.add('msg-hidden');
-  openModalWithFocusTrap(
-    document.getElementById('modal-change-pwd'),
-    document.getElementById('btn-change-pwd')
-  );
-  document.getElementById('pwd-current').focus();
-});
-
-document.getElementById('modal-pwd-close').addEventListener('click', closePwdModal);
-document.getElementById('modal-pwd-cancel').addEventListener('click', closePwdModal);
-
 function closePwdModal() {
   closeModalWithFocusTrap(document.getElementById('modal-change-pwd'));
 }
@@ -666,36 +508,6 @@ function closeModalWithFocusTrap(modalEl) {
   _focusTrapTrigger = null;
 }
 
-// Patch closeModal pour focus trap
-document.getElementById('btn-new-channel').addEventListener('click', () => {
-  _focusTrapModal   = document.getElementById('modal-new');
-  _focusTrapTrigger = document.getElementById('btn-new-channel');
-}, { capture: true });
-
-document.getElementById('btn-change-pwd').addEventListener('click', () => {
-  _focusTrapModal   = document.getElementById('modal-change-pwd');
-  _focusTrapTrigger = document.getElementById('btn-change-pwd');
-}, { capture: true });
-
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    if (document.getElementById('modal-change-pwd').classList.contains('open')) closePwdModal();
-    else if (document.getElementById('modal-new').classList.contains('open')) closeModal();
-    return;
-  }
-  if (e.key === 'Tab' && _focusTrapModal && _focusTrapModal.classList.contains('open')) {
-    const focusable = Array.from(_focusTrapModal.querySelectorAll(FOCUSABLE));
-    if (focusable.length === 0) { e.preventDefault(); return; }
-    const first = focusable[0];
-    const last  = focusable[focusable.length - 1];
-    if (e.shiftKey) {
-      if (document.activeElement === first) { e.preventDefault(); last.focus(); }
-    } else {
-      if (document.activeElement === last)  { e.preventDefault(); first.focus(); }
-    }
-  }
-});
-
 // --- WEBSOCKET ADMIN ---
 let adminWs = null;
 let adminWsReconnectTimer = null;
@@ -739,22 +551,236 @@ function handleAdminWsMessage(msg) {
     case 'stream:started':
     case 'stream:stopped':
     case 'stream:vod_ended':
-      updateStats(msg.data || {});
+      if (typeof updateStats === 'function') updateStats(msg.data || {});
       if (_sysViewOpen) loadActiveStreams();
-      loadChannels();
+      if (typeof loadChannels === 'function') loadChannels();
       break;
+    case 'channels:update':
     case 'channel:updated':
-      loadChannels();
+      if (typeof loadChannels === 'function') loadChannels();
+      break;
+    case 'stats:update':
+      if (typeof updateStats === 'function') updateStats(msg.data || {});
       break;
     case 'connected':
-      loadChannels();
+      if (typeof loadChannels === 'function') loadChannels();
       break;
   }
 }
 
-// Fermer la vue système si on navigue vers un canal depuis la sidebar
-document.addEventListener('click', (e) => {
-  if (_sysViewOpen && e.target.closest('.channel-item')) {
-    hideSystemView();
+// --- EVENT LISTENERS (appelés depuis init() après login) ---
+function initEventListeners() {
+  // Topbar logo/titre → vue d'ensemble
+  const logo = document.querySelector('.topbar-logo');
+  const title = document.querySelector('.topbar-title');
+  if (logo)  logo.addEventListener('click',  () => showOverview());
+  if (title) title.addEventListener('click', () => showOverview());
+
+  // Bouton retour vue d'ensemble dans content-header
+  const btnOverview = document.getElementById('btn-overview');
+  if (btnOverview) btnOverview.addEventListener('click', () => showOverview());
+
+  // Bouton vue système
+  const btnSystem = document.getElementById('btn-system');
+  if (btnSystem) {
+    btnSystem.addEventListener('click', () => {
+      if (ViewState.current === ViewState.VIEWS.SYSTEM) hideSystemView();
+      else showSystemView();
+    });
   }
-});
+
+  // Bouton actualiser dans vue système
+  const sysRefreshBtn = document.getElementById('sys-refresh-btn');
+  if (sysRefreshBtn) sysRefreshBtn.addEventListener('click', refreshSystemView);
+
+  // Déconnexion
+  const btnLogout = document.getElementById('btn-logout');
+  if (btnLogout) {
+    btnLogout.addEventListener('click', () => {
+      if (!confirm('Se déconnecter de la régie ?')) return;
+      log('Déconnexion effectuée', 'warn');
+      doLogout();
+    });
+  }
+
+  // Changement mot de passe
+  const btnChangePwd = document.getElementById('btn-change-pwd');
+  if (btnChangePwd) {
+    btnChangePwd.addEventListener('click', () => {
+      document.getElementById('pwd-current').value = '';
+      document.getElementById('pwd-new').value = '';
+      document.getElementById('pwd-confirm').value = '';
+      document.getElementById('pwd-error').classList.add('msg-hidden');
+      document.getElementById('pwd-success').classList.add('msg-hidden');
+      openModalWithFocusTrap(
+        document.getElementById('modal-change-pwd'),
+        btnChangePwd
+      );
+      document.getElementById('pwd-current').focus();
+    });
+    btnChangePwd.addEventListener('click', () => {
+      _focusTrapModal   = document.getElementById('modal-change-pwd');
+      _focusTrapTrigger = btnChangePwd;
+    }, { capture: true });
+  }
+
+  const modalPwdClose  = document.getElementById('modal-pwd-close');
+  const modalPwdCancel = document.getElementById('modal-pwd-cancel');
+  if (modalPwdClose)  modalPwdClose.addEventListener('click', closePwdModal);
+  if (modalPwdCancel) modalPwdCancel.addEventListener('click', closePwdModal);
+
+  // Modal nouveau canal — focus trap
+  const btnNewChannel = document.getElementById('btn-new-channel');
+  if (btnNewChannel) {
+    btnNewChannel.addEventListener('click', () => {
+      _focusTrapModal   = document.getElementById('modal-new');
+      _focusTrapTrigger = btnNewChannel;
+    }, { capture: true });
+  }
+
+  // new-icon preview
+  const newIcon = document.getElementById('new-icon');
+  if (newIcon) newIcon.addEventListener('input', function() {
+    const preview = document.getElementById('new-icon-preview');
+    if (preview) preview.textContent = this.value;
+  });
+
+  // Source type change
+  const newSourceType = document.getElementById('new-source-type');
+  if (newSourceType) newSourceType.addEventListener('change', () => {
+    if (typeof updateSourceForm === 'function') updateSourceForm();
+  });
+
+  // Breadcrumbs (délégation)
+  document.addEventListener('click', (e) => {
+    const breadcrumb = e.target.closest('.breadcrumb-item');
+    if (breadcrumb && !breadcrumb.classList.contains('active')) {
+      if (breadcrumb.dataset.view === 'overview') showOverview();
+    }
+  });
+
+  // Sidebar — sélection canal (délégation)
+  document.addEventListener('click', (e) => {
+    const ch = e.target.closest('.ch-item[data-id]');
+    if (ch) {
+      if (_sysViewOpen) ViewState.hideSystem();
+      selectChannel(ch.dataset.id);
+    }
+  }, true);
+
+  // Délégation d'événements globale (click — data-action)
+  document.addEventListener('click', (e) => {
+    const el = e.target.closest('[data-action]');
+    if (!el) return;
+    const action = el.dataset.action;
+    const id = el.dataset.id;
+    switch (action) {
+      case 'show-overview':      showOverview(); break;
+      case 'start-stream':       if (typeof startStream === 'function')     startStream(id); break;
+      case 'stop-stream':        if (typeof stopStream === 'function')      stopStream(id); break;
+      case 'restart-stream':     if (typeof restartStream === 'function')   restartStream(id); break;
+      case 'start-testtone':     if (typeof startTestTone === 'function')   startTestTone(id); break;
+      case 'delete-channel':     if (typeof deleteChannel === 'function')   deleteChannel(id); break;
+      case 'clear-edit-sdp':     if (typeof clearEditSdp === 'function')    clearEditSdp(id); break;
+      case 'save-edit-sdp':      if (typeof saveEditSdp === 'function')     saveEditSdp(id); break;
+      case 'apply-edit-sdp':     if (typeof applyEditSdp === 'function')    applyEditSdp(id); break;
+      case 'save-channel-edit':  if (typeof saveChannelEdit === 'function') saveChannelEdit(id); break;
+      case 'set-icon': {
+        const inp = document.getElementById(el.dataset.input);
+        const pre = document.getElementById(el.dataset.preview);
+        if (inp) inp.value = el.dataset.value;
+        if (pre) pre.textContent = el.dataset.value;
+        break;
+      }
+      case 'load-sdp-list':    if (typeof loadSdpList === 'function')    loadSdpList(); break;
+      case 'load-audio-list':  if (typeof loadAudioList === 'function')  loadAudioList(); break;
+      case 'clear-sdp-content': if (typeof clearSdpContent === 'function') clearSdpContent(); break;
+      case 'sdp-dropzone-click':
+        if (!e.target.closest('input[type="file"]'))
+          document.getElementById('src-sdp-file-input')?.click();
+        break;
+      case 'audio-dropzone-click':
+        if (!e.target.closest('input[type="file"]'))
+          document.getElementById('src-audio-file-input')?.click();
+        break;
+    }
+  });
+
+  document.addEventListener('change', (e) => {
+    const el = e.target.closest('[data-action]');
+    if (!el) return;
+    switch (el.dataset.action) {
+      case 'update-channel-map':       if (typeof updateChannelMapOptions === 'function')    updateChannelMapOptions(); break;
+      case 'update-edit-channel-map':  if (typeof updateEditChannelMapOptions === 'function') updateEditChannelMapOptions(); break;
+      case 'update-channel-map-sdp':   if (typeof updateChannelMapOptionsFor === 'function') updateChannelMapOptionsFor('src-aes67sdp-channels', 'channel-map-row-sdp', 'src-aes67sdp-channelmap', 'downmix-row-sdp'); break;
+      case 'update-channel-map-paste': if (typeof updateChannelMapOptionsFor === 'function') updateChannelMapOptionsFor('src-aes67paste-channels', 'channel-map-row-paste', 'src-aes67paste-channelmap', 'downmix-row-paste'); break;
+      case 'sdp-existing-select':      if (typeof onSdpExistingSelect === 'function')   onSdpExistingSelect(); break;
+      case 'audio-existing-select':    if (typeof onAudioExistingSelect === 'function') onAudioExistingSelect(); break;
+      case 'sdp-file-select':          if (typeof onSdpFileSelect === 'function')   onSdpFileSelect(el); break;
+      case 'audio-file-select':        if (typeof onAudioFileSelect === 'function') onAudioFileSelect(el); break;
+    }
+  });
+
+  document.addEventListener('input', (e) => {
+    const el = e.target.closest('[data-action]');
+    if (!el) return;
+    switch (el.dataset.action) {
+      case 'update-icon-preview': {
+        const pre = document.getElementById(el.dataset.preview);
+        if (pre) pre.textContent = el.value;
+        break;
+      }
+      case 'sdp-content-input': if (typeof onSdpContentInput === 'function') onSdpContentInput(el); break;
+      case 'channels-change': {
+        const id = el.id;
+        if (typeof updateChannelMapOptionsFor === 'function') {
+          if (id === 'src-aes67sdp-channels')   updateChannelMapOptionsFor('src-aes67sdp-channels', 'channel-map-row-sdp', 'src-aes67sdp-channelmap');
+          else if (id === 'src-aes67paste-channels') updateChannelMapOptionsFor('src-aes67paste-channels', 'channel-map-row-paste', 'src-aes67paste-channelmap');
+        }
+        if (id === 'edit-aes67-channels' && typeof updateEditChannelMapOptions === 'function') updateEditChannelMapOptions();
+        break;
+      }
+      case 'edit-sdp-input': if (typeof onEditSdpInput === 'function') onEditSdpInput(el.dataset.id, el); break;
+    }
+  });
+
+  // Drag-drop dropzones
+  document.addEventListener('dragover', (e) => {
+    if (e.target.closest('#sdp-dropzone, #audio-dropzone')) e.preventDefault();
+  });
+  document.addEventListener('dragenter', (e) => {
+    const dz = e.target.closest('#sdp-dropzone, #audio-dropzone');
+    if (dz) dz.classList.add('sdp-dropzone--drag');
+  });
+  document.addEventListener('dragleave', (e) => {
+    const dz = e.target.closest('#sdp-dropzone, #audio-dropzone');
+    if (dz && !dz.contains(e.relatedTarget)) dz.classList.remove('sdp-dropzone--drag');
+  });
+  document.addEventListener('drop', (e) => {
+    const dz  = e.target.closest('#sdp-dropzone');
+    const adz = e.target.closest('#audio-dropzone');
+    if (dz)  { e.preventDefault(); dz.classList.remove('sdp-dropzone--drag');  if (typeof onSdpDrop === 'function') onSdpDrop(e); }
+    if (adz) { e.preventDefault(); adz.classList.remove('sdp-dropzone--drag'); if (typeof onAudioDrop === 'function') onAudioDrop(e); }
+  });
+
+  // Touche Escape pour fermer les modals
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      const modalPwd = document.getElementById('modal-change-pwd');
+      const modalNew = document.getElementById('modal-new');
+      if (modalPwd && modalPwd.classList.contains('open')) { closePwdModal(); return; }
+      if (modalNew && modalNew.classList.contains('open')) { if (typeof closeModal === 'function') closeModal(); return; }
+    }
+    if (e.key === 'Tab' && _focusTrapModal && _focusTrapModal.classList.contains('open')) {
+      const focusable = Array.from(_focusTrapModal.querySelectorAll(FOCUSABLE));
+      if (focusable.length === 0) { e.preventDefault(); return; }
+      const first = focusable[0];
+      const last  = focusable[focusable.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+      } else {
+        if (document.activeElement === last)  { e.preventDefault(); first.focus(); }
+      }
+    }
+  });
+}

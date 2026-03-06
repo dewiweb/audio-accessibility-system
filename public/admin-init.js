@@ -10,7 +10,6 @@ if (window.location.search) {
 // Toutes les requêtes suivantes utilisent un token HMAC signé à durée limitée.
 let adminToken = '';
 let tokenExpiry = 0;
-let ws;
 let selectedChannelId = null;
 let allChannels = [];
 let stats = {};
@@ -116,54 +115,36 @@ async function loadChannels() {
 }
 
 async function loadQr() {
+  const urlEl = document.getElementById('qr-url');
+  const imgEl = document.getElementById('qr-img');
   try {
-    console.log('[QR Frontend] Loading QR code...');
     const r = await fetch('/api/qrcode');
-    console.log('[QR Frontend] Response status:', r.status);
-
     if (!r.ok) {
-      const errorText = await r.text();
-      console.error('[QR Frontend] API error:', r.status, errorText);
-      const urlEl = document.getElementById('qr-url');
-      if (urlEl) {
-        urlEl.className = 'qr-error';
-        urlEl.textContent = `Erreur ${r.status}: ${errorText}`;
-      }
+      const txt = await r.text();
+      if (urlEl) { urlEl.className = 'qr-error'; urlEl.textContent = `Erreur ${r.status}: ${txt}`; }
       return;
     }
-
     const data = await r.json();
-    console.log('[QR Frontend] QR data received:', data);
-
-    const imgEl = document.getElementById('qr-img');
     if (imgEl && data.qrcode) {
-      imgEl.src = data.qrcode;
-    } else {
-      console.error('[QR Frontend] No QR code data received');
+      imgEl.setAttribute('src', data.qrcode);
     }
-
-    const urlEl = document.getElementById('qr-url');
     if (urlEl) {
-      urlEl.textContent = data.url;
-    }
-
-    if (data.isDualNetwork && data.adminUrl) {
-      const note = document.createElement('div');
-      note.className = 'qr-note';
-      note.textContent = '🌐 Mode double interface — QR code pointe sur le réseau public';
-      urlEl.parentNode.insertBefore(note, urlEl.nextSibling);
-      const adminNote = document.createElement('div');
-      adminNote.className = 'qr-admin-note';
-      adminNote.textContent = `🔧 Admin : ${data.adminUrl}`;
-      urlEl.parentNode.insertBefore(adminNote, note.nextSibling);
+      urlEl.className = 'qr-url';
+      urlEl.textContent = data.url || '';
+      if (data.isDualNetwork && data.adminUrl) {
+        const note = document.createElement('div');
+        note.className = 'qr-note';
+        note.textContent = '🌐 Mode double interface — QR code pointe sur le réseau public';
+        urlEl.parentNode.insertBefore(note, urlEl.nextSibling);
+        const adminNote = document.createElement('div');
+        adminNote.className = 'qr-admin-note';
+        adminNote.textContent = `🔧 Admin : ${data.adminUrl}`;
+        urlEl.parentNode.insertBefore(adminNote, note.nextSibling);
+      }
     }
   } catch (e) {
-    console.error('[QR Frontend] Error:', e);
-    const urlEl = document.getElementById('qr-url');
-    if (urlEl) {
-      urlEl.className = 'qr-error';
-      urlEl.textContent = `Erreur: ${e.message}`;
-    }
+    console.error('[QR] Error:', e);
+    if (urlEl) { urlEl.className = 'qr-error'; urlEl.textContent = `Erreur: ${e.message}`; }
   }
 }
 
