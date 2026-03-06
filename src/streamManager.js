@@ -7,6 +7,47 @@ const os = require('os');
 const config = require('./config');
 const channelManager = require('./channelManager');
 
+function writeLoopPCM(stdinStream, filePath, sampleRate, onStop) {
+  const ffmpegPath = require('fluent-ffmpeg').ffmpegPath || 'ffmpeg';
+  let running = true;
+  let currentProc = null;
+
+  function pumpLoop() {
+    if (!running) return;
+    const proc = spawn(ffmpegPath, [
+      '-i', filePath,
+      '-f', 's16le', '-ar', String(sampleRate), '-ac', '2',
+      'pipe:1',
+    ], { stdio: ['ignore', 'pipe', 'ignore'] });
+    currentProc = proc;
+
+    proc.stdout.on('data', (chunk) => {
+      if (!running) return;
+      const ok = stdinStream.write(chunk);
+      if (!ok) proc.stdout.pause();
+    });
+
+    stdinStream.once('drain', () => {
+      if (currentProc && currentProc.stdout) currentProc.stdout.resume();
+    });
+
+    proc.on('close', () => {
+      if (running) pumpLoop();
+    });
+
+    proc.on('error', () => {
+      if (running) setTimeout(pumpLoop, 500);
+    });
+  }
+
+  pumpLoop();
+
+  return () => {
+    running = false;
+    if (currentProc) { try { currentProc.kill('SIGKILL'); } catch(_) {} }
+  };
+}
+
 function writeSinePCM(stdinStream, frequency, sampleRate, onStop) {
   const channels = 2;
   const bytesPerSample = 2;
@@ -226,85 +267,90 @@ class StreamManager extends EventEmitter {
   }
 
   async _startLoopFileStream(channelId, source, sourceConfig, outputDir) {
-    // Boucle infinie via stream_loop -1 + HLS live (fenêtre glissante, delete_segments).
-    // FFmpeg relit le fichier indéfiniment → pas de EXT-X-ENDLIST → HLS.js en mode live.
-    // stream:started émis dès le premier segment disponible après le démarrage.
-    // Pas de pré-encodage, pas d'attente : le stream démarre immédiatement.
+    // Boucle infinie via pipe stdin PCM : writeLoopPCM décode le fichier en PCM s16le
+    // et le renvoie en boucle à FFmpeg via stdin sans jointure → pas de segment vide/invalide.
+    // stream_loop -1 causait une pause de ~6s à chaque jointure (réouverture fichier par FFmpeg)
+    // produisant des segments vides → bufferStalledError HLS.js → coupure audible.
 
     const playlistPath = path.join(outputDir, 'stream.m3u8');
+    const sampleRate = config.audio.sampleRate;
+    const ffmpegPath = config.audio.ffmpegPath || 'ffmpeg';
 
-    const audioFilters = [];
+    const LOOP_LIST_SIZE = 10;
+    const LOOP_SEGMENT_DURATION = 4;
+
+    const afFilters = [];
     if (source.channelMap && source.channelMap.length === 2) {
       const [l, r] = source.channelMap.map(n => n - 1);
-      audioFilters.push(`pan=stereo|c0=c${l}|c1=c${r}`);
+      afFilters.push(`pan=stereo|c0=c${l}|c1=c${r}`);
     }
     if (source.downmix && !source.channelMap) {
       switch (source.downmix) {
-        case 'stereo':         audioFilters.push('aformat=channel_layouts=stereo'); break;
-        case 'stereo-loud':    audioFilters.push('pan=stereo|c0=0.65*c0+0.45*c2+0.45*c4+0.55*c6|c1=0.65*c1+0.45*c2+0.45*c5+0.55*c6'); break;
-        case 'binaural':       audioFilters.push('headphone=hrir=compensated:type=time'); break;
-        case 'mono-to-stereo': audioFilters.push('pan=stereo|c0=c0|c1=c0'); break;
+        case 'stereo':         afFilters.push('aformat=channel_layouts=stereo'); break;
+        case 'stereo-loud':    afFilters.push('pan=stereo|c0=0.65*c0+0.45*c2+0.45*c4+0.55*c6|c1=0.65*c1+0.45*c2+0.45*c5+0.55*c6'); break;
+        case 'binaural':       afFilters.push('headphone=hrir=compensated:type=time'); break;
+        case 'mono-to-stereo': afFilters.push('pan=stereo|c0=c0|c1=c0'); break;
       }
     }
-    if (source.gain && source.gain !== 0) audioFilters.push(`volume=${source.gain}dB`);
+    if (source.gain && source.gain !== 0) afFilters.push(`volume=${source.gain}dB`);
 
-    // Durée de segment adaptée à la durée du fichier :
-    //   segment ≤ fileDuration/2 pour éviter les discontinuités à la jointure de boucle,
-    //   minimum 2s, maximum 4s, fenêtre totale = 6 segments (min 12s, max 24s).
-    const fileDuration = await this._getFileDuration(sourceConfig.input);
-    let LOOP_SEGMENT_DURATION = 4;
-    if (fileDuration !== null) {
-      LOOP_SEGMENT_DURATION = Math.max(2, Math.min(4, Math.floor(fileDuration / 2)));
-      console.log(`[Stream ${channelId}] File duration: ${fileDuration.toFixed(1)}s → hls_time: ${LOOP_SEGMENT_DURATION}s`);
-    }
-    const LOOP_LIST_SIZE = 10;
-
-    const outputOptions = [
-      '-f hls',
-      `-hls_time ${LOOP_SEGMENT_DURATION}`,
-      `-hls_list_size ${LOOP_LIST_SIZE}`,
-      '-hls_flags delete_segments+append_list+independent_segments',
-      '-hls_segment_type mpegts',
-      `-hls_segment_filename ${path.join(outputDir, 'seg%05d.ts')}`,
-      '-hls_allow_cache 0',
+    const args = [
+      '-f', 's16le', '-ar', String(sampleRate), '-ac', '2', '-i', 'pipe:0',
+      '-y',
+      '-acodec', 'aac', '-b:a', config.audio.bitrate, '-ar', String(sampleRate), '-ac', '2',
+      ...(afFilters.length > 0 ? ['-af', afFilters.join(',')] : []),
+      '-f', 'hls',
+      '-hls_time', String(LOOP_SEGMENT_DURATION),
+      '-hls_list_size', String(LOOP_LIST_SIZE),
+      '-hls_flags', 'delete_segments+append_list+independent_segments',
+      '-hls_segment_type', 'mpegts',
+      '-hls_segment_filename', path.join(outputDir, 'seg%05d.ts'),
+      '-hls_allow_cache', '0',
+      playlistPath,
     ];
-    if (audioFilters.length > 0) outputOptions.push(`-af ${audioFilters.join(',')}`);
 
-    const proc = ffmpeg(sourceConfig.input)
-      .inputOptions(['-stream_loop -1', ...(sourceConfig.inputOptions || [])])
-      .audioCodec('aac')
-      .audioBitrate(config.audio.bitrate)
-      .audioFrequency(config.audio.sampleRate)
-      .audioChannels(2)
-      .outputOptions(outputOptions)
-      .output(playlistPath)
-      .on('start', (cmd) => {
-        console.log(`[Stream ${channelId}] Loop live: ${cmd}`);
-        channelManager.setActive(channelId, true);
-        this.emit('stream:started', { channelId });
-      })
-      .on('error', (err) => {
-        console.error(`[Stream ${channelId}] Loop error:`, err.message);
-        this.activeStreams.delete(channelId);
-        channelManager.setActive(channelId, false);
-        this.emit('stream:error', { channelId, error: err.message });
-      })
-      .on('end', () => {
-        console.log(`[Stream ${channelId}] Loop ended unexpectedly`);
-        this.activeStreams.delete(channelId);
-        channelManager.setActive(channelId, false);
-        this.emit('stream:ended', { channelId });
-      });
+    console.log(`[Stream ${channelId}] Loop pipe: ${ffmpegPath} ${args.join(' ')}`);
 
-    proc.run();
+    const proc = spawn(ffmpegPath, args, { stdio: ['pipe', 'ignore', 'pipe'] });
+
+    proc.stderr.on('data', (d) => {
+      const msg = d.toString();
+      if (msg.includes('Opening') || msg.includes('hls') || msg.includes('error') || msg.includes('Error')) {
+        process.stdout.write(`[FFmpeg ${channelId.slice(0,8)}] ${msg}`);
+      }
+    });
+
+    const stopLoop = writeLoopPCM(proc.stdin, sourceConfig.input, sampleRate);
+
+    proc.on('spawn', () => {
+      console.log(`[Stream ${channelId}] Loop pipe spawned`);
+      channelManager.setActive(channelId, true);
+      this.emit('stream:started', { channelId });
+    });
+
+    proc.on('error', (err) => {
+      console.error(`[Stream ${channelId}] Loop pipe error:`, err.message);
+      stopLoop();
+      this.activeStreams.delete(channelId);
+      channelManager.setActive(channelId, false);
+      this.emit('stream:error', { channelId, error: err.message });
+    });
+
+    proc.on('close', (code) => {
+      console.log(`[Stream ${channelId}] Loop pipe closed (code ${code})`);
+      stopLoop();
+      this.activeStreams.delete(channelId);
+      channelManager.setActive(channelId, false);
+      this.emit('stream:ended', { channelId });
+    });
 
     this.activeStreams.set(channelId, {
-      proc,
+      proc: { kill: (sig) => { stopLoop(); proc.kill(sig); } },
       source,
       startedAt: new Date().toISOString(),
       tempSdp: null,
       sineStream: null,
-      stopSine: null,
+      stopSine: stopLoop,
       cleanupInterval: null,
     });
 
