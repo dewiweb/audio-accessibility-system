@@ -520,6 +520,26 @@
     .sys-net-title { display: flex; align-items: center; gap: 8px; }
     .sys-netcfg-body { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     .sys-loading { color: var(--text3); font-size: 13px; padding-top: 8px; }
+    .iface-family { color: var(--text3); }
+    .iface-netmask { color: var(--text3); font-size: 12px; }
+    .iface-mac { color: var(--text3); font-family: monospace; font-size: 11px; }
+    .sys-error { color: var(--red); }
+    .stream-id { color: var(--text3); font-size: 12px; font-family: monospace; }
+    .stream-type { color: var(--text2); }
+    .stream-status { font-weight: 600; }
+    .stream-live { color: var(--green); }
+    .stream-vod { color: var(--accent2); }
+    .stream-age { color: var(--text3); }
+    .source-section-title { font-size: 11px; font-weight: 700; color: var(--text3); text-transform: uppercase; margin-bottom: 8px; }
+    .source-table-margin { margin-bottom: 14px; }
+    .source-card { color: var(--text2); }
+    .source-device { color: var(--text2); }
+    .source-ffmpeg { font-family: monospace; font-size: 12px; color: var(--accent2); }
+    .source-pulse-device { font-family: monospace; font-size: 12px; color: var(--accent2); }
+    .version-node { color: var(--text3); font-size: 11px; }
+    .netcfg-section-title { font-size: 11px; font-weight: 700; color: var(--text2); margin-bottom: 10px; text-transform: uppercase; }
+    .netcfg-disabled { font-size: 13px; color: var(--text3); padding-top: 12px; }
+    .netcfg-code { font-size: 12px; color: var(--accent2); }
   </style>
 </head>
 <body>
@@ -572,7 +592,7 @@
           </div>
         </div>
         <div class="content-header-right">
-          <button class="btn-sm btn-ghost" id="btn-overview" style="display:none">← Vue d'ensemble</button>
+          <button class="btn-sm btn-ghost view-hidden" id="btn-overview">← Vue d'ensemble</button>
           <div id="content-header-actions"></div>
         </div>
       </div>
@@ -639,7 +659,7 @@
                   <span>Charge CPU</span>
                   <span id="sys-cpu-pct">—</span>
                 </div>
-                <div class="sys-bar"><div class="sys-bar-fill" id="sys-cpu-bar" style="width:0%"></div></div>
+                <div class="sys-bar"><div class="sys-bar-fill" id="sys-cpu-bar" class="bar-width-0"></div></div>
               </div>
               <div class="sys-metric"><span class="sys-metric-label">Load 1 min</span><span class="sys-metric-value" id="sys-load1">—</span></div>
               <div class="sys-metric"><span class="sys-metric-label">Load 5 min</span><span class="sys-metric-value" id="sys-load5">—</span></div>
@@ -655,7 +675,7 @@
                   <span>Utilisation</span>
                   <span id="sys-mem-pct">—</span>
                 </div>
-                <div class="sys-bar"><div class="sys-bar-fill" id="sys-mem-bar" style="width:0%"></div></div>
+                <div class="sys-bar"><div class="sys-bar-fill" id="sys-mem-bar" class="bar-width-0"></div></div>
               </div>
               <div class="sys-metric"><span class="sys-metric-label">Utilisée</span><span class="sys-metric-value" id="sys-mem-used">—</span></div>
               <div class="sys-metric"><span class="sys-metric-label">Libre</span><span class="sys-metric-value" id="sys-mem-free">—</span></div>
@@ -2586,7 +2606,7 @@ async function loadNetworkConfig() {
 
     const row = (key, val) => `<div class="netcfg-row"><span class="netcfg-key">${key}</span><span class="netcfg-val">${val || '—'}</span></div>`;
 
-    adminDiv.innerHTML = `<div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:10px;text-transform:uppercase">
+    adminDiv.innerHTML = `<div class="netcfg-section-title">
       ${cfg.isDualNetwork ? '🔴 Interface régie (admin)' : '⚪ Interface unique'}
     </div>
     ${row('Bind host', cfg.adminHost)}
@@ -2594,17 +2614,17 @@ async function loadNetworkConfig() {
     ${row('URL admin', cfg.publicUrl)}
     ${cfg.isDualNetwork ? row('AES67 interface', cfg.multicastInterface || cfg.adminHost) : ''}`;
 
-    publicDiv.innerHTML = cfg.isDualNetwork ? `<div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:10px;text-transform:uppercase">
+    publicDiv.innerHTML = cfg.isDualNetwork ? `<div class="netcfg-section-title">
       🟢 Interface WiFi public (écoute)
     </div>
     ${row('Bind host', cfg.publicHost)}
     ${row('Port', cfg.publicPort)}
     ${row('URL publique', cfg.publicListenerUrl || cfg.publicUrl)}
     ${row('TLS CN', cfg.tlsCn)}` :
-    `<div style="font-size:13px;color:var(--text3);padding-top:12px">
+    `<div class="netcfg-disabled">
       Mode double interface non actif.<br><br>
-      Définissez <code style="font-size:12px;color:var(--accent2)">ADMIN_HOST</code> et
-      <code style="font-size:12px;color:var(--accent2)">PUBLIC_HOST</code> dans les variables
+      Définissez <code class="netcfg-code">ADMIN_HOST</code> et
+      <code class="netcfg-code">PUBLIC_HOST</code> dans les variables
       d'environnement Portainer pour activer le mode production dual-réseau.
     </div>`;
   } catch (e) {
@@ -2617,19 +2637,19 @@ async function loadNetworkInterfaces() {
     const ifaces = await apiFetch('/api/admin/network/interfaces');
     const tbody = document.getElementById('sys-iface-body');
     if (!ifaces.length) {
-      tbody.innerHTML = '<tr><td colspan="5" style="color:var(--text3);padding-top:8px">Aucune interface détectée</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" class="sys-loading">Aucune interface détectée</td></tr>';
       return;
     }
     tbody.innerHTML = ifaces.map(i => `<tr>
       <td><span class="iface-name">${i.name}</span></td>
       <td><span class="iface-addr">${i.address}</span></td>
-      <td style="color:var(--text3)">${i.family}</td>
-      <td style="color:var(--text3);font-size:12px">${i.netmask || '—'}</td>
-      <td style="color:var(--text3);font-family:monospace;font-size:11px">${i.mac || '—'}</td>
+      <td class="iface-family">${i.family}</td>
+      <td class="iface-netmask">${i.netmask || '—'}</td>
+      <td class="iface-mac">${i.mac || '—'}</td>
     </tr>`).join('');
   } catch (e) {
     document.getElementById('sys-iface-body').innerHTML =
-      `<tr><td colspan="5" style="color:var(--red)">Erreur : ${e.message}</td></tr>`;
+      `<tr><td colspan="5" class="sys-error">Erreur : ${e.message}</td></tr>`;
   }
 }
 
@@ -2657,15 +2677,15 @@ async function loadActiveStreams() {
       const statusColor = s.isVod ? 'color:var(--accent2)' : 'color:var(--green)';
       return `<tr>
         <td><span class="iface-name">${s.name || s.channelId}</span></td>
-        <td style="color:var(--text3);font-size:12px;font-family:monospace">${s.channelId}</td>
-        <td style="color:var(--text2)">${s.sourceType || '—'}</td>
-        <td style="${statusColor};font-weight:600">${statusText}</td>
-        <td style="color:var(--text3)">${fmtAge(s.startedAt)}</td>
+        <td class="stream-id">${s.channelId}</td>
+        <td class="stream-type">${s.sourceType || '—'}</td>
+        <td class="stream-status ${s.isVod ? 'stream-vod' : 'stream-live'}">${statusText}</td>
+        <td class="stream-age">${fmtAge(s.startedAt)}</td>
       </tr>`;
     }).join('') + '</tbody></table>';
   } catch (e) {
     const el = document.getElementById('sys-streams-body');
-    if (el) el.innerHTML = `<span style="color:var(--red)">Erreur : ${e.message}</span>`;
+    if (el) el.innerHTML = `<span class="sys-error">Erreur : ${e.message}</span>`;
   }
 }
 
@@ -2681,28 +2701,28 @@ async function loadAudioSources() {
     }
     let html = '';
     if (alsa.length) {
-      html += `<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:8px">ALSA</div>`;
-      html += `<table class="iface-table" style="margin-bottom:14px"><thead><tr>
+      html += `<div class="source-section-title">ALSA</div>`;
+      html += `<table class="iface-table source-table-margin"><thead><tr>
         <th>Carte</th><th>Périphérique</th><th>Nom</th><th>Adresse FFmpeg</th>
       </tr></thead><tbody>`;
       html += alsa.map(d => `<tr>
-        <td style="color:var(--text2)">${d.card}</td>
-        <td style="color:var(--text2)">${d.device}</td>
+        <td class="source-card">${d.card}</td>
+        <td class="source-device">${d.device}</td>
         <td><span class="iface-name">${d.name}</span></td>
-        <td style="font-family:monospace;font-size:12px;color:var(--accent2)">hw:${d.card},${d.device}</td>
+        <td class="source-ffmpeg">hw:${d.card},${d.device}</td>
       </tr>`).join('');
       html += '</tbody></table>';
     }
     if (pulse.length) {
-      html += `<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:8px">PulseAudio</div>`;
+      html += `<div class="source-section-title">PulseAudio</div>`;
       html += `<table class="iface-table"><thead><tr><th>Périphérique</th></tr></thead><tbody>`;
-      html += pulse.map(d => `<tr><td style="font-family:monospace;font-size:12px;color:var(--accent2)">${d.device}</td></tr>`).join('');
+      html += pulse.map(d => `<tr><td class="source-pulse-device">${d.device}</td></tr>`).join('');
       html += '</tbody></table>';
     }
     el.innerHTML = html;
   } catch (e) {
     const el = document.getElementById('sys-audio-sources-body');
-    if (el) el.innerHTML = `<span style="color:var(--red)">Erreur : ${e.message}</span>`;
+    if (el) el.innerHTML = `<span class="sys-error">Erreur : ${e.message}</span>`;
   }
 }
 
@@ -2741,7 +2761,7 @@ async function loadVersion() {
     const data = await r.json();
     const versionEl = document.getElementById('sys-version');
     if (versionEl) {
-      versionEl.innerHTML = `v${data.version} <span style="color:var(--text3);font-size:11px">(Node ${data.nodeVersion})</span>`;
+      versionEl.innerHTML = `v${data.version} <span class="version-node">(Node ${data.nodeVersion})</span>`;
     }
   } catch (e) {
     console.warn('Erreur chargement version:', e);
