@@ -40,6 +40,10 @@ USER audioapp
 EXPOSE 8443
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-  CMD wget -qO- --no-check-certificate https://localhost:${HTTPS_PORT:-8443}/api/channels || exit 1
+  CMD \
+    echo "Testing healthcheck on port ${HTTPS_PORT:-8443}..." && \
+    wget -qO- --no-check-certificate --timeout=5 https://127.0.0.1:${HTTPS_PORT:-8443}/api/channels || \
+    wget -qO- --no-check-certificate --timeout=5 http://127.0.0.1:${HTTP_PORT:-8080}/api/channels || \
+    (echo "Healthcheck failed" && exit 1)
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
